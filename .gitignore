@@ -1,0 +1,20 @@
+# Visual Studio cache and settings
+.vs/
+CMakeUserPresets.json
+
+# Visual Studio CMake build output directories
+out/
+build/
+
+# Standard CMake build artifacts (if you run CMake from terminal)
+CMakeFiles/
+CMakeCache.txt
+CMakeScripts/
+Testing/
+Makefile
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+_deps/
+*.user
