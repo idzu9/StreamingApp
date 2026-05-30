@@ -1,12 +1,7 @@
-﻿// StreamingApp.cpp : Defines the entry point for the application.
-//
+﻿#include <iostream>
 
-#include "StreamingApp.h"
-
-using namespace std;
-
-int main()
+int main(int argc, char* argv[])
 {
-	cout << "Hello CMake." << endl;
+	std::cout << "Hello StreamingApp!" << std::endl;
 	return 0;
 }
