@@ -4,6 +4,7 @@
 #include <boost/json.hpp>
 #include <boost/type_index.hpp>
 #include <iostream>
+#include <cstdlib>
 
 namespace beast = boost::beast;
 namespace http = beast::http;
@@ -33,7 +34,7 @@ void Server::CreateMediaPipeline()
 	MediaPipeline = std::make_unique<WebrtcPipeline>();
 }
 
-void Server::StartMainLoop()
+void Server::_StartMainLoop()
 {
 	std::cout << "[" << __FUNCTION__ << "] is called" << std::endl;
 
@@ -42,13 +43,26 @@ void Server::StartMainLoop()
 
 void Server::StartServer()
 {
-	ServerThread = std::thread(&Server::_StartServer, this);
-	
-	StartMainLoop();
+	HttpServerThread = std::thread(&Server::_StartHttpServer, this);
 
-	if (ServerThread.joinable())
+	HttpServerThread.detach();
+
+	AppServerThread = std::thread(&Server::_StartServer, this);
+	
+	_StartMainLoop();
+
+	if (MediaPipeline)
 	{
-		ServerThread.join();
+		MediaPipeline->EnableDebug();
+	}
+	else
+	{
+		std::cout << "[" << __FUNCTION__ << "] media pipeline is not initialized" << std::endl;
+	}
+
+	if (AppServerThread.joinable())
+	{
+		AppServerThread.join();
 	}
 }
 
@@ -93,5 +107,19 @@ void Server::_StartServer()
 	catch (std::exception const& exc)
 	{
 		std::cerr << "Exception: " << exc.what() << std::endl;
+	}
+}
+
+void Server::_StartHttpServer() const
+{
+	int Result = std::system("python3 -m http.server 9999");
+
+	if (Result == 0)
+	{
+		std::cout << "[" << __FUNCTION__ << "] Success - http server started" << std::endl;
+	}
+	else
+	{
+		std::cerr << "[" << __FUNCTION__ << "] could not start http server" << std::endl;
 	}
 }

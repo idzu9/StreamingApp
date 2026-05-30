@@ -21,3 +21,9 @@ void WebrtcPipeline::InitializePipeline()
 			gst_init(nullptr, nullptr);
 		});
 }
+
+void WebrtcPipeline::EnableDebug() const
+{
+	std::cout << "GST_DEBUG enabled" << std::endl;
+	setenv("GST_DEBUG", "*:WARN", 1);
+}

@@ -32,14 +32,19 @@ private:
 	*/
 	void _StartServer();
 
+	void _StartHttpServer() const;
+
 	/*
 		Start of the event loop
 	*/
-	void StartMainLoop();
+	void _StartMainLoop();
 
 	GMainLoop* MainLoop;
 
-	std::thread ServerThread;
+	std::thread AppServerThread;
+
+	std::thread HttpServerThread;
+
 
 	std::unique_ptr<IMediaPipeline> MediaPipeline;
 

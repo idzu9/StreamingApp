@@ -10,6 +10,8 @@ public:
 
 	virtual void InitializePipeline() override;
 
+	virtual void EnableDebug() const override;
+
 private:
 	static std::once_flag InitFlag;
 };
