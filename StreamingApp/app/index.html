@@ -1,0 +1,94 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <title>WebRTC Stream</title>
+</head>
+<body>
+    <video id="video" autoplay playsinline muted style="width: 100%; background: black; max-width: 640px; max-height: 480px;"></video>
+    <button onclick="alterImage('filter_grayscale')">Grayscale</button>
+    <script>
+        const video = document.getElementById('video');
+        const signaling = new WebSocket('ws://localhost:8443/ws');
+
+        let pc = new RTCPeerConnection({
+            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+        });
+
+        signaling.onopen = () => {
+            console.log('WebSocket connection opened successfully. Starting negotiation...');
+            start();
+        };
+
+        signaling.onmessage = async (event) => {
+            const data = JSON.parse(event.data);
+            console.log('Received signaling message:', data);
+
+            if (data.type === 'answer') {
+                console.log('Setting remote description with answer');
+                await pc.setRemoteDescription(new RTCSessionDescription(data));
+            } else if (data.type === 'candidate') {
+                console.log('Adding ICE candidate:', data.ice);
+                await pc.addIceCandidate(new RTCIceCandidate(data.ice));
+            }
+        };
+
+        pc.onicecandidate = (event) => {
+            if (event.candidate) {
+                console.log('Sending ICE candidate:', event.candidate);
+                if (signaling.readyState === WebSocket.OPEN) {
+                    signaling.send(JSON.stringify({
+                        type: 'candidate',
+                        ice: event.candidate
+                    }));
+                }
+            }
+        };
+
+        pc.ontrack = (event) => {
+            console.log('Received track:', event);
+
+            console.log("RTP Packets Detected! Processing media track...", event);
+
+            const video = document.getElementById("video");
+            if (!video) {
+                console.error("HTML Video tag with id='video' was not found!");
+                return;
+            }
+
+            if (event.streams && event.streams[0]) {
+                video.srcObject = event.streams[0];
+                console.log(event.streams[0]);
+            } else {
+                console.warn("Stream wrapper missing. Building a custom wrapper for the raw track.");
+                const localStream = new MediaStream();
+                localStream.addTrack(event.track);
+                video.srcObject = localStream;
+            }
+        };
+
+        pc.oniceconnectionstatechange = () => {
+            console.log('ICE connection state:', pc.iceConnectionState);
+        };
+
+        async function start() {
+            pc.addTransceiver('video', { direction: 'recvonly' });
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            console.log('Set local description with offer, sending to backend...');
+            signaling.send(JSON.stringify({ type: 'offer', sdp: pc.localDescription.sdp }));
+        }
+
+        function alterImage(command) {
+            if (signaling.readyState === WebSocket.OPEN) {
+                // Send a simple string command to the server
+                signaling.send(JSON.stringify({
+                    type: 'action',
+                    action: command
+                }));
+
+                console.log(command);
+            }
+        }
+    </script>
+</body>
+</html>

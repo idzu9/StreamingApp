@@ -1,17 +1,11 @@
 #include "Server.hpp"
 #include "WebrtcPipeline.hpp"
-#include <boost/beast.hpp>
-#include <boost/json.hpp>
-#include <boost/type_index.hpp>
+#include <gst/gst.h>
+#include <gst/webrtc/webrtc.h>
 #include <iostream>
-#include <cstdlib>
-
-namespace beast = boost::beast;
-namespace http = beast::http;
-namespace websocket = beast::websocket;
-namespace net = boost::asio;
-using tcp = net::ip::tcp;
-using namespace boost::json;
+#include <memory>
+#include <opencv2/opencv.hpp>
+#include <thread>
 
 Server::Server()
 {
@@ -32,6 +26,15 @@ void Server::CreateMainLoop()
 void Server::CreateMediaPipeline()
 {
 	MediaPipeline = std::make_unique<WebrtcPipeline>();
+
+	if (MediaPipeline)
+	{
+		MediaPipeline->InitializePipeline();
+	}
+	else
+	{
+		std::cerr << "Failed to create a pipeline" << std::endl;
+	}
 }
 
 void Server::_StartMainLoop()
@@ -92,8 +95,8 @@ void Server::_StartServer()
 
 		while (true)
 		{
-			Socket.emplace(IOC);
-			Acceptor.accept(Socket.value());
+			tcp::socket LocalSocket{ IOC };
+			Acceptor.accept(LocalSocket);
 
 			std::cout << "[" << __FUNCTION__ << "] is waiting for the new TCP connection" << std::endl;
 
@@ -101,7 +104,7 @@ void Server::_StartServer()
 				this is a blocking operation, until the new connection fires
 			*/
 			std::cout << "[" << __FUNCTION__ << "] accepted new TCP connection" << std::endl;
-			//std::thread{ handle_websocket_session, std::move(socket) }.detach();
+			std::thread(&Server::_HandleWebsocketSession, this, std::move(LocalSocket)).detach();
 		}
 	}
 	catch (std::exception const& exc)
@@ -112,7 +115,7 @@ void Server::_StartServer()
 
 void Server::_StartHttpServer() const
 {
-	int Result = std::system("python3 -m http.server 9999");
+	int Result = std::system("python3 -m http.server 9999 -d ../../../../StreamingApp/app/");
 
 	if (Result == 0)
 	{
@@ -122,4 +125,93 @@ void Server::_StartHttpServer() const
 	{
 		std::cerr << "[" << __FUNCTION__ << "] could not start http server" << std::endl;
 	}
+}
+
+
+void Server::_HandleWebsocketSession(tcp::socket InSocket)
+{
+	try
+	{
+		/*
+			Layered Architecture: The websocket::stream handles high-level WebSocket logic while delegating actual data transport to the underlying NextLayer
+			(in this case, tcp::socket).
+
+			Message-Oriented: Unlike raw TCP, which is a stream of bytes,
+			this class provides message-oriented functionality, allowing you to read or write complete WebSocket messages.
+
+			Synchronous and Asynchronous: It supports both blocking (e.g., .read(), .write()) and non-blocking (e.g., .async_read(), .async_write()) operations.
+		*/
+
+		/*
+			perform a handshake
+		*/
+
+		std::cout << "BEFORE WebSocket connection accepted" << std::endl;
+
+		// MAKE IT LOCAL
+		WebSocket.emplace(std::move(InSocket));
+
+		std::cout << "MIDDLE WebSocket connection accepted" << std::endl;
+
+
+		WebSocket->accept();
+
+		std::cout << "WebSocket connection accepted" << std::endl;
+
+		MediaPipeline->CreatePipeline();
+
+		WebrtcPipeline* Webrtc = dynamic_cast<WebrtcPipeline*>(MediaPipeline.get());
+		if (!Webrtc)
+		{
+			std::cout << "We are working with not Webrtc pipeline atm, but others are not supported" << std::endl;
+			return ;
+		}
+
+		Webrtc->OnIceCandidateDelegate.BindDelegate(this, &Server::_SendIceCandidateMessage);
+		Webrtc->OnWriteMessageInBuffer.BindDelegate(this, &Server::_OnWriteMessageInBuffer);
+
+		while (true)
+		{
+			beast::flat_buffer Buffer;
+			WebSocket->read(Buffer);
+
+			std::string Text = beast::buffers_to_string(Buffer.data());
+			
+			Webrtc->ProccessTextBuffer(Text);
+		}
+	}
+	catch (beast::system_error const& Error)
+	{
+		if (Error.code() != websocket::error::closed)
+		{
+			std::cerr << "Error: " << Error.code().message() << std::endl;
+		}
+	}
+	catch (std::exception& Exception)
+	{
+		std::cout << Exception.what() << std::endl;
+	}
+}
+
+void Server::_SendIceCandidateMessage(guint mlineindex, gchar* candidate)
+{
+	std::cout << "[" << __FUNCTION__ <<  "] Sending ICE candidate nlineindex " << mlineindex << ", candidate " << candidate << std::endl;
+
+	boost::json::object ice_json;
+	ice_json["candidate"] = candidate;
+	ice_json["sdpMLineIndex"] = mlineindex;
+
+	boost::json::object msg_json;
+	msg_json["type"] = "candidate";
+	msg_json["ice"] = ice_json;
+
+	std::string text = serialize(msg_json);
+	WebSocket->write(net::buffer(text));
+
+	std::cout << "[" << __FUNCTION__ << "] ICE candidate sent" << std::endl;
+}
+
+void Server::_OnWriteMessageInBuffer(std::string Message)
+{
+	WebSocket->write(boost::asio::buffer(Message));
 }

@@ -5,9 +5,19 @@
 #include <memory>
 #include <optional>
 #include <boost/asio.hpp>
+#include <boost/beast.hpp>
+#include <boost/json.hpp>
+#include <boost/type_index.hpp>
 #include <glib.h>
 
 #include "Interfaces/IMediaPipeline.hpp"
+
+namespace beast = boost::beast;
+namespace http = beast::http;
+namespace websocket = beast::websocket;
+namespace net = boost::asio;
+using tcp = net::ip::tcp;
+using namespace boost::json;
 
 /*
 	stun server and port we are going to work on
@@ -34,6 +44,12 @@ private:
 
 	void _StartHttpServer() const;
 
+	void _HandleWebsocketSession(tcp::socket Socket);
+
+	void _SendIceCandidateMessage(guint mlineindex, gchar* candidate);
+
+	void _OnWriteMessageInBuffer(std::string Message);
+
 	/*
 		Start of the event loop
 	*/
@@ -45,6 +61,7 @@ private:
 
 	std::thread HttpServerThread;
 
+	std::optional<websocket::stream<tcp::socket>> WebSocket;
 
 	std::unique_ptr<IMediaPipeline> MediaPipeline;
 
