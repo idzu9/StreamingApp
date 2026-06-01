@@ -42,6 +42,16 @@ private:
 
 	static GstFlowReturn OnCameraFrameRecieved(GstElement* Sink, gpointer UserData);
 
+	void _CreatePipelineElements();
+
+	void _LinkPipelineElements();
+
+	void _SetElementCapsAndProperties();
+
+	void _ConnectElemetsPads();
+
+	void _SetupSignals();
+
 	/*
 	*	Pipeline elements
 	*/

@@ -35,6 +35,16 @@ void WebrtcPipeline::EnableDebug() const
 
 void WebrtcPipeline::CreatePipeline()
 {
+	_CreatePipelineElements();
+	_SetElementCapsAndProperties();
+	_LinkPipelineElements();
+	_ConnectElemetsPads();
+	_SetupSignals();
+	StartPipelinePlaying();
+}
+
+void WebrtcPipeline::_CreatePipelineElements()
+{
 	Pipeline = gst_pipeline_new("pipeline");
 
 	/*
@@ -71,7 +81,7 @@ void WebrtcPipeline::CreatePipeline()
 	*/
 
 	Queue = gst_element_factory_make("queue", "Queue");
-	
+
 	/*
 		GStreamer element that performs the heavy lifting of compressing raw video into the VP8 format.
 		This is the "gold standard" codec for WebRTC because it is royalty-free and supported by every modern web browser (Chrome, Firefox, Safari).
@@ -89,10 +99,34 @@ void WebrtcPipeline::CreatePipeline()
 		|| !Rtpvp8pay || !Decoder || !Tee || !Fakesink
 		|| !Webrtcbin || !Appsink || !Appsrc || !VideoconvertFromAppsrc)
 	{
-		g_printerr("1. Not all elements could be created\n");
+		g_printerr("Not all elements could be created\n");
+		return;
+	}
+}
+
+void WebrtcPipeline::_LinkPipelineElements()
+{
+	gst_bin_add_many(GST_BIN(Pipeline), V4l2src, Capsfilter,
+		Decoder, Videobalance, Videoconvert, Appsink, Appsrc, VideoconvertFromAppsrc,
+		Tee, Fakesink, Queue, Vp8enc, Rtpvp8pay, Webrtcbin, nullptr);
+
+	if (!gst_element_link_many(V4l2src, Capsfilter, Decoder, Videobalance, Videoconvert, Appsink, nullptr))
+	{
+		g_printerr("Elements could not be linked\n");
+		g_object_unref(Pipeline);
 		return;
 	}
 
+	if (!gst_element_link_many(Appsrc, VideoconvertFromAppsrc, Tee, nullptr))
+	{
+		g_printerr("Elements could not be linked 2\n");
+		g_object_unref(Pipeline);
+		return;
+	}
+}
+
+void WebrtcPipeline::_SetElementCapsAndProperties()
+{
 	/*
 		v4l2src - a standard way to capture the data from the webcam in linux system
 	*/
@@ -104,10 +138,6 @@ void WebrtcPipeline::CreatePipeline()
 	GstCaps* mjpeg_caps = gst_caps_from_string("image/jpeg, width=640, height=480, framerate=30/1");
 	g_object_set(Capsfilter, "caps", mjpeg_caps, nullptr);
 	gst_caps_unref(mjpeg_caps);
-
-	gst_bin_add_many(GST_BIN(Pipeline), V4l2src, Capsfilter,
-		Decoder, Videobalance, Videoconvert, Appsink, Appsrc, VideoconvertFromAppsrc,
-		Tee, Fakesink, Queue, Vp8enc, Rtpvp8pay, Webrtcbin, nullptr);
 
 	g_object_set(G_OBJECT(Appsink),
 		"emit-signals", true,
@@ -126,21 +156,10 @@ void WebrtcPipeline::CreatePipeline()
 
 	g_object_set(G_OBJECT(Appsink), "caps", bgr_caps, nullptr);
 	gst_caps_unref(bgr_caps);
+}
 
-	if (!gst_element_link_many(V4l2src, Capsfilter, Decoder, Videobalance, Videoconvert, Appsink, nullptr))
-	{
-		g_printerr("Elements could not be linked\n");
-		g_object_unref(Pipeline);
-		return;
-	}
-
-	if (!gst_element_link_many(Appsrc, VideoconvertFromAppsrc, Tee, nullptr))
-	{
-		g_printerr("Elements could not be linked 2\n");
-		g_object_unref(Pipeline);
-		return;
-	}
-
+void WebrtcPipeline::_ConnectElemetsPads()
+{
 	GstPad* TeePadForFakesink = gst_element_request_pad_simple(Tee, "src_%u");
 	GstPad* FakesinkPad = gst_element_get_static_pad(Fakesink, "sink");
 	gst_pad_link(TeePadForFakesink, FakesinkPad);
@@ -160,11 +179,12 @@ void WebrtcPipeline::CreatePipeline()
 	gst_pad_link(Srcpad, Sinkpad);
 	gst_object_unref(Srcpad);
 	gst_object_unref(Sinkpad);
+}
 
+void WebrtcPipeline::_SetupSignals()
+{
 	g_signal_connect(Webrtcbin, "on-ice-candidate", G_CALLBACK(OnIceCandidate), this);
 	g_signal_connect(Appsink, "new-sample", G_CALLBACK(OnCameraFrameRecieved), this);
-
-	StartPipelinePlaying();
 }
 
 void WebrtcPipeline::StartPipelinePlaying()
