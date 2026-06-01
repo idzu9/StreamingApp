@@ -111,10 +111,8 @@ void WebrtcPipeline::CreatePipeline()
 
 	g_object_set(G_OBJECT(Appsink),
 		"emit-signals", true,
-		"sync", false,			// DO NOT synchronize frames against a clock here
+		"sync", false,
 		"async", false,
-		"is-live", true,		// Declare it as a live stream
-		"do-timestamp", true,	// CRITICAL: Tells appsink to skip waiting for preroll
 		nullptr);
 
 	g_object_set(G_OBJECT(Appsrc),
@@ -164,7 +162,7 @@ void WebrtcPipeline::CreatePipeline()
 	gst_object_unref(Sinkpad);
 
 	g_signal_connect(Webrtcbin, "on-ice-candidate", G_CALLBACK(OnIceCandidate), this);
-	g_signal_connect(Appsink, "new-sample", G_CALLBACK(on_camera_frame_received), this);
+	g_signal_connect(Appsink, "new-sample", G_CALLBACK(OnCameraFrameRecieved), this);
 
 	StartPipelinePlaying();
 }
@@ -198,7 +196,7 @@ void WebrtcPipeline::ProccessTextBuffer(const std::string& TextBuffer)
 
 	if (type == "offer")
 	{
-		std::cout << "Recieved offer: " << TextBuffer << std::endl;
+		std::cout << "[" << __FUNCTION__ << "] Recieved offer: " << TextBuffer << std::endl;
 
 		/*
 			SDP - session description protocol used in WebRTC to establish
@@ -209,150 +207,116 @@ void WebrtcPipeline::ProccessTextBuffer(const std::string& TextBuffer)
 		GstSDPMessage* SDPMessage;
 		gst_sdp_message_new_from_text(SDP.c_str(), &SDPMessage);
 		GstWebRTCSessionDescription* Offer = gst_webrtc_session_description_new(GST_WEBRTC_SDP_TYPE_OFFER, SDPMessage);
-		GstPromise* Promise = gst_promise_new_with_change_func(on_set_remote_description, this, nullptr);
+		GstPromise* Promise = gst_promise_new_with_change_func(OnSetRemoteDescription, this, nullptr);
 		g_signal_emit_by_name(Webrtcbin, "set-remote-description", Offer, Promise);
 		gst_webrtc_session_description_free(Offer);
 	}
 	else if (type == "candidate")
 	{
-		std::cout << "Received ICE candidate: " << TextBuffer << std::endl;
+		std::cout << "[" << __FUNCTION__ << "] Received ICE candidate: " << TextBuffer << std::endl;
 
 		object ice = JsonObject["ice"].as_object();
 		std::string Candidate = ice["candidate"].as_string().c_str();
 		guint SDPMLineIndex = ice["sdpMLineIndex"].as_int64();
 		g_signal_emit_by_name(Webrtcbin, "add-ice-candidate", SDPMLineIndex, Candidate.c_str());
 
-		std::cout << "Added ICE candidate" << std::endl;
+		std::cout << "[" << __FUNCTION__ << "] Added ICE candidate" << std::endl;
 	}
-	//else if (type == "action")
-	//{
-	//	if (json_object["action"] == "filter_grayscale")
-	//	{
-	//		server_data.is_grayscale_enabled = !server_data.is_grayscale_enabled;
-	//		const float saturation = server_data.is_grayscale_enabled ? 0.f : 1.0f;
-	//		g_object_set(G_OBJECT(server_data.videobalance), "saturation", saturation, nullptr);
-	//	}
-	//}
 }
 
-// !!!! REFACTOR
-void WebrtcPipeline::on_set_remote_description(GstPromise* Promise, gpointer UserData)
+void WebrtcPipeline::OnSetRemoteDescription(GstPromise* Promise, gpointer UserData)
 {
-	std::cout << "Remote description set, creating answer" << std::endl;
+	std::cout << "[" << __FUNCTION__ << "] Remote description set, creating answer" << std::endl;
 
 	WebrtcPipeline* Pipeline = static_cast<WebrtcPipeline*>(UserData);
-
-	GstPromise* AnswerPromise = gst_promise_new_with_change_func(WebrtcPipeline::on_answer_created, UserData, nullptr);
-
+	GstPromise* AnswerPromise = gst_promise_new_with_change_func(WebrtcPipeline::OnAnswerCreated, UserData, nullptr);
 	g_signal_emit_by_name(Pipeline->Webrtcbin, "create-answer", nullptr, AnswerPromise);
 }
 
-// !!!! REFACTOR
-void WebrtcPipeline::on_answer_created(GstPromise* Promise, gpointer UserData)
+void WebrtcPipeline::OnAnswerCreated(GstPromise* Promise, gpointer UserData)
 {
-	std::cout << "Answer created" << std::endl;
+	std::cout << "[" << __FUNCTION__ << "] Answer created" << std::endl;
 
 	WebrtcPipeline* Pipeline = static_cast<WebrtcPipeline*>(UserData);
-	GstWebRTCSessionDescription* answer = nullptr;
-	const GstStructure* reply = gst_promise_get_reply(Promise);
-	gst_structure_get(reply, "answer", GST_TYPE_WEBRTC_SESSION_DESCRIPTION, &answer, nullptr);
+	GstWebRTCSessionDescription* Answer = nullptr;
+	const GstStructure* Reply = gst_promise_get_reply(Promise);
+	gst_structure_get(Reply, "answer", GST_TYPE_WEBRTC_SESSION_DESCRIPTION, &Answer, nullptr);
 
-	GstPromise* local_promise = gst_promise_new();
-	g_signal_emit_by_name(Pipeline->Webrtcbin, "set-local-description", answer, local_promise);
+	GstPromise* LocalPromise = gst_promise_new();
+	g_signal_emit_by_name(Pipeline->Webrtcbin, "set-local-description", Answer, LocalPromise);
 
-	boost::json::object sdp_json;
-	sdp_json["type"] = "answer";
-	sdp_json["sdp"] = gst_sdp_message_as_text(answer->sdp);
-	std::string text = serialize(sdp_json);
-	Pipeline->OnWriteMessageInBuffer.ExecuteIfBound(text);
+	boost::json::object SdpJson;
+	SdpJson["type"] = "answer";
+	SdpJson["sdp"] = gst_sdp_message_as_text(Answer->sdp);
+	std::string TextBuffer = serialize(SdpJson);
+	Pipeline->OnWriteMessageInBuffer.ExecuteIfBound(TextBuffer);
 
-	std::cout << "Local description set and answer sent: " << text << std::endl;
+	std::cout << "[" << __FUNCTION__ << "] Local description set and answer sent: " << TextBuffer << std::endl;
 
-	gst_webrtc_session_description_free(answer);
+	gst_webrtc_session_description_free(Answer);
 }
 
-
-
-GstFlowReturn WebrtcPipeline::on_camera_frame_received(GstElement* Sink, gpointer UserData)
+GstFlowReturn WebrtcPipeline::OnCameraFrameRecieved(GstElement* Sink, gpointer UserData)
 {
 	WebrtcPipeline* Pipeline = static_cast<WebrtcPipeline*>(UserData);
-
-	std::cout << "HMMMMMMMMMMMMMMMMMMMMMMMMM 0" << std::endl;
 	GstMapInfo Map;
 
+	GstSample* Sample = gst_app_sink_pull_sample(GST_APP_SINK(Sink));
+	if (!Sample)
+	{
+		return GST_FLOW_OK;
+	}
 
-	// 1. Pull the sample (Guaranteed to be there instantly because the signal fired)
-	GstSample* sample = gst_app_sink_pull_sample(GST_APP_SINK(Sink));
-	if (!sample) return GST_FLOW_OK;
+	GstBuffer* Buffer = gst_sample_get_buffer(Sample);
+	if (Buffer)
+	{
+		gst_buffer_ref(Buffer);
 
-	std::cout << "HMMMMMMMMMMMMMMMMMMMMMMMMM 1" << std::endl;
-
-	// 2. Extract buffer
-	GstBuffer* buffer = gst_sample_get_buffer(sample);
-	if (buffer) {
-		// Retain memory reference for appsrc
-		gst_buffer_ref(buffer);
-
-		// Map caps dynamically so WebRTC knows the video dimension/format
-		GstCaps* caps = gst_sample_get_caps(sample);
-		if (caps) {
+		GstCaps* caps = gst_sample_get_caps(Sample);
+		if (caps)
+		{
 			gst_app_src_set_caps(GST_APP_SRC(Pipeline->Appsrc), caps);
 		}
 
-		GstVideoInfo info;
-		if (!gst_video_info_from_caps(&info, caps)) {
+		GstVideoInfo Info;
+		if (!gst_video_info_from_caps(&Info, caps))
+		{
 			g_printerr("Failed to parse caps to video info\n");
-			gst_sample_unref(sample);
+			gst_sample_unref(Sample);
 			return GST_FLOW_ERROR;
 		}
 
-		// 1. Extract resolution
+		int Width = GST_VIDEO_INFO_WIDTH(&Info);
+		int Height = GST_VIDEO_INFO_HEIGHT(&Info);
 
-		int width = GST_VIDEO_INFO_WIDTH(&info);
-		int height = GST_VIDEO_INFO_HEIGHT(&info);
+		Buffer = gst_buffer_make_writable(Buffer);
+		if (gst_buffer_map(Buffer, &Map, GST_MAP_READWRITE))
+		{
 
-		buffer = gst_buffer_make_writable(buffer);
-
-		GstMapInfo map;
-		if (gst_buffer_map(buffer, &map, GST_MAP_READWRITE)) {
-
-			// map.data points to the raw pixel data (e.g., BGR, RGB, YUV)
-			// map.size gives the total size of the frame in bytes
-			// --- MANIPULATE THE BUFFER HERE ---
-			// Example: Invert all the bits/pixels in the frame (for demonstration)
-/*			for (gsize i = 0; i < map.size; i++) {
-				map.data[i] = ~map.data[i];
-			}*/
-
-			cv::Mat frame(cv::Size(width, height), CV_8UC3, (void*)map.data, cv::Mat::AUTO_STEP);
+			cv::Mat frame(cv::Size(Width, Height), CV_8UC3, (void*)Map.data, cv::Mat::AUTO_STEP);
 
 			cv::flip(frame, frame, 1);
 
-			// 4. Burn the text onto the raw buffer memory
 			cv::putText(frame,
 				"WebRTC Stream Live",
 				cv::Point(10, 15),
 				cv::FONT_HERSHEY_SIMPLEX,
 				0.6,
-				cv::Scalar(0, 255, 0), // Red text for BGR
+				cv::Scalar(0, 255, 0),
 				1,
 				cv::FILLED);
 
-			// 4. Unmap the buffer after manipulation
-			gst_buffer_unmap(buffer, &map);
+			gst_buffer_unmap(Buffer, &Map);
 		}
 
-
-		// 3. Immediately push it into appsrc
-		GstFlowReturn ret = gst_app_src_push_buffer(GST_APP_SRC(Pipeline->Appsrc), buffer);
-
-		if (ret != GST_FLOW_OK) {
-			// If downstream WebRTC rejected it or is flushing, unref to prevent memory leak
-			gst_buffer_unref(buffer);
+		GstFlowReturn FlowReturn = gst_app_src_push_buffer(GST_APP_SRC(Pipeline->Appsrc), Buffer);
+		if (FlowReturn != GST_FLOW_OK)
+		{
+			gst_buffer_unref(Buffer);
 		}
 	}
 
-	// 4. Free the sample wrapper
-	gst_sample_unref(sample);
+	gst_sample_unref(Sample);
+
 	return GST_FLOW_OK;
 }

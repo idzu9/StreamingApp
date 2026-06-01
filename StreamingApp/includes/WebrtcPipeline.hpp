@@ -34,14 +34,13 @@ public:
 
 private:
 
-	static void OnIceCandidate(GstElement* Element, guint mlineindex, gchar* candidate, gpointer user_data);
+	static void OnIceCandidate(GstElement* Element, guint Mlineindex, gchar* Candidate, gpointer UserData);
 
-	// TO REFACTOR
-	static void on_set_remote_description(GstPromise* promise, gpointer user_data);
+	static void OnSetRemoteDescription(GstPromise* Promise, gpointer UserData);
 
-	static void on_answer_created(GstPromise* promise, gpointer user_data);
+	static void OnAnswerCreated(GstPromise* Promise, gpointer UserData);
 
-	static GstFlowReturn on_camera_frame_received(GstElement* sink, gpointer user_data);
+	static GstFlowReturn OnCameraFrameRecieved(GstElement* Sink, gpointer UserData);
 
 	/*
 	*	Pipeline elements
