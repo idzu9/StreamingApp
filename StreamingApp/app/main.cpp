@@ -14,6 +14,7 @@ int main(int argc, char* argv[])
 		Create loop and pipeline instance (webrtc for now)
 	*/
 	ServerInstance->CreateMainLoop();
+	ServerInstance->CreateMediaProvider();
 	ServerInstance->CreateMediaPipeline();
 	ServerInstance->StartServer();
 

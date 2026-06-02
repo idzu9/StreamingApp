@@ -7,7 +7,7 @@
 
 using namespace boost::json;
 
-std::once_flag WebrtcPipeline::InitFlag;
+//std::once_flag WebrtcPipeline::InitFlag;
 
 WebrtcPipeline::WebrtcPipeline()
 {
@@ -19,69 +19,32 @@ WebrtcPipeline::~WebrtcPipeline()
 	std::cout << boost::typeindex::type_id<WebrtcPipeline>().pretty_name() << " pipeline instance is destroyed" << std::endl;
 }
 
-void WebrtcPipeline::InitializePipeline()
-{
-	std::call_once(WebrtcPipeline::InitFlag, []()
-	{
-		gst_init(nullptr, nullptr);
-	});
-}
+//void WebrtcPipeline::InitializePipeline()
+//{
+//	std::call_once(WebrtcPipeline::InitFlag, []()
+//	{
+//		gst_init(nullptr, nullptr);
+//	});
+//}
 
-void WebrtcPipeline::EnableDebug() const
-{
-	std::cout << "GST_DEBUG enabled" << std::endl;
-	setenv("GST_DEBUG", "*:WARN", 1);
-}
+//void WebrtcPipeline::EnableDebug() const
+//{
+//	std::cout << "GST_DEBUG enabled" << std::endl;
+//	setenv("GST_DEBUG", "*:WARN", 1);
+//}
 
-void WebrtcPipeline::CreatePipeline()
-{
-	_CreatePipelineElements();
-	_SetElementCapsAndProperties();
-	_LinkPipelineElements();
-	_ConnectElemetsPads();
-	_SetupSignals();
-	StartPipelinePlaying();
-}
+//void WebrtcPipeline::CreatePipeline()
+//{
+//	//_CreatePipelineElements();
+//	//_SetElementCapsAndProperties();
+//	//_LinkPipelineElements();
+//	//_ConnectElemetsPads();
+//	//_SetupSignals();
+//	//StartPipelinePlaying();
+//}
 
 void WebrtcPipeline::_CreatePipelineElements()
 {
-	Pipeline = gst_pipeline_new("pipeline");
-
-	/*
-		On Linux systems, it is the standard way to pull live video data from:
-		Webcams (USB-connected cameras).
-		TV tuner cards.
-		Capture cards or built-in camera sensors
-	*/
-	V4l2src = gst_element_factory_make("v4l2src", "V4l2src");
-	Videobalance = gst_element_factory_make("videobalance", "Videobalance");
-	Videoconvert = gst_element_factory_make("videoconvert", "Videoconvert");
-	Decoder = gst_element_factory_make("jpegdec", "Decoder");
-	Tee = gst_element_factory_make("tee", "Tee");
-
-	Appsink = gst_element_factory_make("appsink", "Appsink");
-	Appsrc = gst_element_factory_make("appsrc", "Appsrc");
-	VideoconvertFromAppsrc = gst_element_factory_make("videoconvert", "VideoconvertFromAppsrc");
-
-	Capsfilter = gst_element_factory_make("capsfilter", "Capsfilter");
-	Fakesink = gst_element_factory_make("fakesink", "Fakesink");
-
-	/*
-		Without a queue, a GStreamer pipeline typically runs in a single thread
-		(the source pushes data directly to the sink). When you add a queue, it acts as a buffer that decouples the elements before it from the elements after it.
-		What it does:
-			1. Threading: It starts a new thread for the downstream part of the pipeline.
-			2. Buffering: It stores data in a memory buffer. If the source is faster than the sink, the queue holds the data until the sink is ready.
-			3. Prevents Blocking: It ensures that if one part of the pipeline (like an encoder) is slow, it doesn't freeze the entire pipeline (like the camera capture).
-
-		When you MUST use it:
-			1. Multithreading: Whenever you want different parts of your pipeline to run on different CPU cores.
-			2. Branching (Tees): If you are splitting one video source to two places (e.g., saving to a file AND streaming via WebSocket), you should put a queue at the start of each branch so one doesn't slow down the other.
-			3. Network Streaming: It is essential for absorbing "jitter" (small timing variations) in network speeds.
-	*/
-
-	Queue = gst_element_factory_make("queue", "Queue");
-
 	/*
 		GStreamer element that performs the heavy lifting of compressing raw video into the VP8 format.
 		This is the "gold standard" codec for WebRTC because it is royalty-free and supported by every modern web browser (Chrome, Firefox, Safari).
@@ -95,34 +58,30 @@ void WebrtcPipeline::_CreatePipelineElements()
 	*/
 	Webrtcbin = gst_element_factory_make("webrtcbin", "Webrtcbin");
 
-	if (!Pipeline || !V4l2src || !Videobalance || !Videoconvert || !Queue || !Vp8enc
-		|| !Rtpvp8pay || !Decoder || !Tee || !Fakesink
-		|| !Webrtcbin || !Appsink || !Appsrc || !VideoconvertFromAppsrc)
+	if (!Vp8enc || !Rtpvp8pay|| !Webrtcbin)
 	{
-		g_printerr("Not all elements could be created\n");
+		g_printerr("[%s] Not all elements could be created\n", __FUNCTION__);
 		return;
 	}
 }
 
-void WebrtcPipeline::_LinkPipelineElements()
+void WebrtcPipeline::_LinkPipelineElements(GstElement* Pipeline)
 {
-	gst_bin_add_many(GST_BIN(Pipeline), V4l2src, Capsfilter,
-		Decoder, Videobalance, Videoconvert, Appsink, Appsrc, VideoconvertFromAppsrc,
-		Tee, Fakesink, Queue, Vp8enc, Rtpvp8pay, Webrtcbin, nullptr);
+	gst_bin_add_many(GST_BIN(Pipeline), Vp8enc, Rtpvp8pay, Webrtcbin, nullptr);
 
-	if (!gst_element_link_many(V4l2src, Capsfilter, Decoder, Videobalance, Videoconvert, Appsink, nullptr))
-	{
-		g_printerr("Elements could not be linked\n");
-		g_object_unref(Pipeline);
-		return;
-	}
+	//if (!gst_element_link_many(V4l2src, Capsfilter, Decoder, Videobalance, Videoconvert, Appsink, nullptr))
+	//{
+	//	g_printerr("Elements could not be linked\n");
+	//	g_object_unref(Pipeline);
+	//	return;
+	//}
 
-	if (!gst_element_link_many(Appsrc, VideoconvertFromAppsrc, Tee, nullptr))
-	{
-		g_printerr("Elements could not be linked 2\n");
-		g_object_unref(Pipeline);
-		return;
-	}
+	//if (!gst_element_link_many(Appsrc, VideoconvertFromAppsrc, Tee, nullptr))
+	//{
+	//	g_printerr("Elements could not be linked 2\n");
+	//	g_object_unref(Pipeline);
+	//	return;
+	//}
 }
 
 void WebrtcPipeline::_SetElementCapsAndProperties()
@@ -130,49 +89,37 @@ void WebrtcPipeline::_SetElementCapsAndProperties()
 	/*
 		v4l2src - a standard way to capture the data from the webcam in linux system
 	*/
-	g_object_set(V4l2src, "device", "/dev/video0", "do-timestamp", true, "extra-controls", false, "io-mode", 2, nullptr);
+	//g_object_set(V4l2src, "device", "/dev/video0", "do-timestamp", true, "extra-controls", false, "io-mode", 2, nullptr);
 
-	/*
-		set the caps for the jpeg decoder
-	*/
-	GstCaps* mjpeg_caps = gst_caps_from_string("image/jpeg, width=640, height=480, framerate=30/1");
-	g_object_set(Capsfilter, "caps", mjpeg_caps, nullptr);
-	gst_caps_unref(mjpeg_caps);
+	///*
+	//	set the caps for the jpeg decoder
+	//*/
+	//GstCaps* mjpeg_caps = gst_caps_from_string("image/jpeg, width=640, height=480, framerate=30/1");
+	//g_object_set(Capsfilter, "caps", mjpeg_caps, nullptr);
+	//gst_caps_unref(mjpeg_caps);
 
-	g_object_set(G_OBJECT(Appsink),
-		"emit-signals", true,
-		"sync", false,
-		"async", false,
-		nullptr);
+	//g_object_set(G_OBJECT(Appsink),
+	//	"emit-signals", true,
+	//	"sync", false,
+	//	"async", false,
+	//	nullptr);
 
-	g_object_set(G_OBJECT(Appsrc),
-		"format", GST_FORMAT_TIME,
-		"is-live", true,
-		"do-timestamp", true,
-		"block", false,
-		nullptr);
+	//g_object_set(G_OBJECT(Appsrc),
+	//	"format", GST_FORMAT_TIME,
+	//	"is-live", true,
+	//	"do-timestamp", true,
+	//	"block", false,
+	//	nullptr);
 
-	GstCaps* bgr_caps = gst_caps_new_simple("video/x-raw", "format", G_TYPE_STRING, "BGR", nullptr);
+	//GstCaps* bgr_caps = gst_caps_new_simple("video/x-raw", "format", G_TYPE_STRING, "BGR", nullptr);
 
-	g_object_set(G_OBJECT(Appsink), "caps", bgr_caps, nullptr);
-	gst_caps_unref(bgr_caps);
+	//g_object_set(G_OBJECT(Appsink), "caps", bgr_caps, nullptr);
+	//gst_caps_unref(bgr_caps);
 }
 
-void WebrtcPipeline::_ConnectElemetsPads()
+void WebrtcPipeline::_ConnectElemetsPads(GstElement* ElementToConnect)
 {
-	GstPad* TeePadForFakesink = gst_element_request_pad_simple(Tee, "src_%u");
-	GstPad* FakesinkPad = gst_element_get_static_pad(Fakesink, "sink");
-	gst_pad_link(TeePadForFakesink, FakesinkPad);
-	gst_object_unref(TeePadForFakesink);
-	gst_object_unref(FakesinkPad);
-
-	GstPad* TeePadForQueue = gst_element_request_pad_simple(Tee, "src_%u");
-	GstPad* SinkPadQueue = gst_element_get_static_pad(Queue, "sink");
-	gst_pad_link(TeePadForQueue, SinkPadQueue);
-	gst_object_unref(TeePadForQueue);
-	gst_object_unref(SinkPadQueue);
-
-	gst_element_link_many(Queue, Vp8enc, Rtpvp8pay, nullptr);
+	gst_element_link_many(ElementToConnect, Vp8enc, Rtpvp8pay, nullptr);
 
 	GstPad* Srcpad = gst_element_get_static_pad(Rtpvp8pay, "src");
 	GstPad* Sinkpad = gst_element_request_pad_simple(Webrtcbin, "sink_%u");
@@ -184,20 +131,20 @@ void WebrtcPipeline::_ConnectElemetsPads()
 void WebrtcPipeline::_SetupSignals()
 {
 	g_signal_connect(Webrtcbin, "on-ice-candidate", G_CALLBACK(OnIceCandidate), this);
-	g_signal_connect(Appsink, "new-sample", G_CALLBACK(OnCameraFrameRecieved), this);
+	//g_signal_connect(Appsink, "new-sample", G_CALLBACK(OnCameraFrameRecieved), this);
 }
 
-void WebrtcPipeline::StartPipelinePlaying()
-{
-	GstStateChangeReturn StateReturn = gst_element_set_state(Pipeline, GST_STATE_PLAYING);
-	if (StateReturn == GST_STATE_CHANGE_FAILURE)
-	{
-		g_printerr("Unable to set the pipelne to the playing state.\n");
-		return;
-	}
-
-	std::cout << "GStreamer pipeline set state to Playing." << std::endl;
-}
+//void WebrtcPipeline::StartPipelinePlaying()
+//{
+//	GstStateChangeReturn StateReturn = gst_element_set_state(Pipeline, GST_STATE_PLAYING);
+//	if (StateReturn == GST_STATE_CHANGE_FAILURE)
+//	{
+//		g_printerr("Unable to set the pipelne to the playing state.\n");
+//		return;
+//	}
+//
+//	std::cout << "GStreamer pipeline set state to Playing." << std::endl;
+//}
 
 void WebrtcPipeline::OnIceCandidate(GstElement* Element, guint Mlineindex, gchar* Candidate, gpointer UserData)
 {
@@ -276,67 +223,67 @@ void WebrtcPipeline::OnAnswerCreated(GstPromise* Promise, gpointer UserData)
 	gst_webrtc_session_description_free(Answer);
 }
 
-GstFlowReturn WebrtcPipeline::OnCameraFrameRecieved(GstElement* Sink, gpointer UserData)
-{
-	WebrtcPipeline* Pipeline = static_cast<WebrtcPipeline*>(UserData);
-	GstMapInfo Map;
-
-	GstSample* Sample = gst_app_sink_pull_sample(GST_APP_SINK(Sink));
-	if (!Sample)
-	{
-		return GST_FLOW_OK;
-	}
-
-	GstBuffer* Buffer = gst_sample_get_buffer(Sample);
-	if (Buffer)
-	{
-		gst_buffer_ref(Buffer);
-
-		GstCaps* caps = gst_sample_get_caps(Sample);
-		if (caps)
-		{
-			gst_app_src_set_caps(GST_APP_SRC(Pipeline->Appsrc), caps);
-		}
-
-		GstVideoInfo Info;
-		if (!gst_video_info_from_caps(&Info, caps))
-		{
-			g_printerr("Failed to parse caps to video info\n");
-			gst_sample_unref(Sample);
-			return GST_FLOW_ERROR;
-		}
-
-		int Width = GST_VIDEO_INFO_WIDTH(&Info);
-		int Height = GST_VIDEO_INFO_HEIGHT(&Info);
-
-		Buffer = gst_buffer_make_writable(Buffer);
-		if (gst_buffer_map(Buffer, &Map, GST_MAP_READWRITE))
-		{
-
-			cv::Mat frame(cv::Size(Width, Height), CV_8UC3, (void*)Map.data, cv::Mat::AUTO_STEP);
-
-			cv::flip(frame, frame, 1);
-
-			cv::putText(frame,
-				"WebRTC Stream Live",
-				cv::Point(10, 15),
-				cv::FONT_HERSHEY_SIMPLEX,
-				0.6,
-				cv::Scalar(0, 255, 0),
-				1,
-				cv::FILLED);
-
-			gst_buffer_unmap(Buffer, &Map);
-		}
-
-		GstFlowReturn FlowReturn = gst_app_src_push_buffer(GST_APP_SRC(Pipeline->Appsrc), Buffer);
-		if (FlowReturn != GST_FLOW_OK)
-		{
-			gst_buffer_unref(Buffer);
-		}
-	}
-
-	gst_sample_unref(Sample);
-
-	return GST_FLOW_OK;
-}
+//GstFlowReturn WebrtcPipeline::OnCameraFrameRecieved(GstElement* Sink, gpointer UserData)
+//{
+//	WebrtcPipeline* Pipeline = static_cast<WebrtcPipeline*>(UserData);
+//	GstMapInfo Map;
+//
+//	GstSample* Sample = gst_app_sink_pull_sample(GST_APP_SINK(Sink));
+//	if (!Sample)
+//	{
+//		return GST_FLOW_OK;
+//	}
+//
+//	GstBuffer* Buffer = gst_sample_get_buffer(Sample);
+//	if (Buffer)
+//	{
+//		gst_buffer_ref(Buffer);
+//
+//		GstCaps* caps = gst_sample_get_caps(Sample);
+//		if (caps)
+//		{
+//			gst_app_src_set_caps(GST_APP_SRC(Pipeline->Appsrc), caps);
+//		}
+//
+//		GstVideoInfo Info;
+//		if (!gst_video_info_from_caps(&Info, caps))
+//		{
+//			g_printerr("Failed to parse caps to video info\n");
+//			gst_sample_unref(Sample);
+//			return GST_FLOW_ERROR;
+//		}
+//
+//		int Width = GST_VIDEO_INFO_WIDTH(&Info);
+//		int Height = GST_VIDEO_INFO_HEIGHT(&Info);
+//
+//		Buffer = gst_buffer_make_writable(Buffer);
+//		if (gst_buffer_map(Buffer, &Map, GST_MAP_READWRITE))
+//		{
+//
+//			cv::Mat frame(cv::Size(Width, Height), CV_8UC3, (void*)Map.data, cv::Mat::AUTO_STEP);
+//
+//			cv::flip(frame, frame, 1);
+//
+//			cv::putText(frame,
+//				"WebRTC Stream Live",
+//				cv::Point(10, 15),
+//				cv::FONT_HERSHEY_SIMPLEX,
+//				0.6,
+//				cv::Scalar(0, 255, 0),
+//				1,
+//				cv::FILLED);
+//
+//			gst_buffer_unmap(Buffer, &Map);
+//		}
+//
+//		GstFlowReturn FlowReturn = gst_app_src_push_buffer(GST_APP_SRC(Pipeline->Appsrc), Buffer);
+//		if (FlowReturn != GST_FLOW_OK)
+//		{
+//			gst_buffer_unref(Buffer);
+//		}
+//	}
+//
+//	gst_sample_unref(Sample);
+//
+//	return GST_FLOW_OK;
+//}

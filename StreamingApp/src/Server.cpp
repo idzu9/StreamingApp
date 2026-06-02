@@ -1,5 +1,6 @@
 #include "Server.hpp"
 #include "WebrtcPipeline.hpp"
+#include <GStreamerWebcamProvider.hpp>
 #include <gst/gst.h>
 #include <gst/webrtc/webrtc.h>
 #include <iostream>
@@ -23,17 +24,37 @@ void Server::CreateMainLoop()
 	MainLoop = g_main_loop_new(nullptr, false);
 }
 
+void Server::CreateMediaProvider()
+{
+	WebcamProvider = std::make_unique<GStreamerWebcamProvider>();
+
+	if (WebcamProvider)
+	{
+		WebcamProvider->InitializePipeline();
+		WebcamProvider->CreatePipeline();
+	}
+	else
+	{
+		std::cout << "[" << __FUNCTION__ << "] Failed to create provider" << std::endl;
+	}
+}
+
 void Server::CreateMediaPipeline()
 {
 	MediaPipeline = std::make_unique<WebrtcPipeline>();
 
 	if (MediaPipeline)
 	{
-		MediaPipeline->InitializePipeline();
+		// refactor it be better than multiple calls
+		MediaPipeline->_CreatePipelineElements();
+		MediaPipeline->_LinkPipelineElements(WebcamProvider->Pipeline);
+		MediaPipeline->_ConnectElemetsPads(WebcamProvider->Queue);
+		MediaPipeline->_SetupSignals();
+		// MediaPipeline->InitializePipeline();
 	}
 	else
 	{
-		std::cerr << "Failed to create a pipeline" << std::endl;
+		std::cout << "[" << __FUNCTION__ << "] Failed to create a pipeline" << std::endl;
 	}
 }
 
@@ -46,6 +67,8 @@ void Server::_StartMainLoop()
 
 void Server::StartServer()
 {
+	WebcamProvider->StartPipelinePlaying();
+
 	HttpServerThread = std::thread(&Server::_StartHttpServer, this);
 
 	HttpServerThread.detach();
@@ -54,13 +77,20 @@ void Server::StartServer()
 	
 	_StartMainLoop();
 
-	if (MediaPipeline)
+	if (WebcamProvider)
 	{
-		MediaPipeline->EnableDebug();
+		WebcamProvider->EnableDebug();
 	}
 	else
 	{
+		std::cout << "[" << __FUNCTION__ << "] media provider is not initialized" << std::endl;
+
+	}
+
+	if (!MediaPipeline)
+	{
 		std::cout << "[" << __FUNCTION__ << "] media pipeline is not initialized" << std::endl;
+		return ;
 	}
 
 	if (AppServerThread.joinable())
@@ -140,35 +170,25 @@ void Server::_HandleWebsocketSession(tcp::socket InSocket)
 			this class provides message-oriented functionality, allowing you to read or write complete WebSocket messages.
 
 			Synchronous and Asynchronous: It supports both blocking (e.g., .read(), .write()) and non-blocking (e.g., .async_read(), .async_write()) operations.
-		*/
 
-		/*
 			perform a handshake
 		*/
 
-		std::cout << "BEFORE WebSocket connection accepted" << std::endl;
-
-		// MAKE IT LOCAL
 		WebSocket.emplace(std::move(InSocket));
-
-		std::cout << "MIDDLE WebSocket connection accepted" << std::endl;
-
-
 		WebSocket->accept();
 
 		std::cout << "WebSocket connection accepted" << std::endl;
 
-		MediaPipeline->CreatePipeline();
+		//MediaPipeline->CreatePipeline();
 
-		WebrtcPipeline* Webrtc = dynamic_cast<WebrtcPipeline*>(MediaPipeline.get());
-		if (!Webrtc)
-		{
-			std::cout << "We are working with not Webrtc pipeline atm, but others are not supported" << std::endl;
-			return ;
-		}
+		//if (Webrtc)
+		//{
+		//	std::cout << "We are working with not Webrtc pipeline atm, but others are not supported" << std::endl;
+		//	return ;
+		//}
 
-		Webrtc->OnIceCandidateDelegate.BindDelegate(this, &Server::_SendIceCandidateMessage);
-		Webrtc->OnWriteMessageInBuffer.BindDelegate(this, &Server::_OnWriteMessageInBuffer);
+		MediaPipeline->OnIceCandidateDelegate.BindDelegate(this, &Server::_SendIceCandidateMessage);
+		MediaPipeline->OnWriteMessageInBuffer.BindDelegate(this, &Server::_OnWriteMessageInBuffer);
 
 		while (true)
 		{
@@ -177,7 +197,7 @@ void Server::_HandleWebsocketSession(tcp::socket InSocket)
 
 			std::string Text = beast::buffers_to_string(Buffer.data());
 			
-			Webrtc->ProccessTextBuffer(Text);
+			MediaPipeline->ProccessTextBuffer(Text);
 		}
 	}
 	catch (beast::system_error const& Error)

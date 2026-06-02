@@ -10,7 +10,10 @@
 #include <boost/type_index.hpp>
 #include <glib.h>
 
-#include "Interfaces/IMediaPipeline.hpp"
+//#include "Interfaces/IMediaPipeline.hpp"
+
+class WebrtcPipeline;
+class GStreamerWebcamProvider;
 
 namespace beast = boost::beast;
 namespace http = beast::http;
@@ -33,6 +36,7 @@ public:
 	~Server();
 
 	void CreateMainLoop();
+	void CreateMediaProvider();
 	void CreateMediaPipeline();
 	void StartServer();
 
@@ -63,7 +67,9 @@ private:
 
 	std::optional<websocket::stream<tcp::socket>> WebSocket;
 
-	std::unique_ptr<IMediaPipeline> MediaPipeline;
+	std::unique_ptr<WebrtcPipeline> MediaPipeline;
+
+	std::unique_ptr<GStreamerWebcamProvider> WebcamProvider;
 
 	std::optional<boost::asio::ip::tcp::socket> Socket;
 };

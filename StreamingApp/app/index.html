@@ -5,7 +5,7 @@
 </head>
 <body>
     <video id="video" autoplay playsinline muted style="width: 100%; background: black; max-width: 640px; max-height: 480px;"></video>
-    <button onclick="alterImage('filter_grayscale')">Grayscale</button>
+    <!--<button onclick="alterImage('filter_grayscale')">Grayscale</button>-->
     <script>
         const video = document.getElementById('video');
         const signaling = new WebSocket('ws://localhost:8443/ws');
@@ -78,17 +78,17 @@
             signaling.send(JSON.stringify({ type: 'offer', sdp: pc.localDescription.sdp }));
         }
 
-        function alterImage(command) {
-            if (signaling.readyState === WebSocket.OPEN) {
-                // Send a simple string command to the server
-                signaling.send(JSON.stringify({
-                    type: 'action',
-                    action: command
-                }));
+        // function alterImage(command) {
+        //     if (signaling.readyState === WebSocket.OPEN) {
+        //         Send a simple string command to the server
+        //         signaling.send(JSON.stringify({
+        //             type: 'action',
+        //             action: command
+        //         }));
 
-                console.log(command);
-            }
-        }
+        //         console.log(command);
+        //     }
+        // }
     </script>
 </body>
 </html>
