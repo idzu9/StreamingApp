@@ -19,3 +19,6 @@ gst-launch-1.0 v4l2src device=/dev/video0 ! image/jpeg,width=640,height=480,fram
 
 http://localhost:8889/stream/ - to see the stream in browser 
 rtmp://localhost/stream - to watch stream in VLC
+
+# HOW to start RTMP server
+podman run --rm -it --network=host docker.io/bluenviron/mediamtx
