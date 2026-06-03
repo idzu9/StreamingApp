@@ -1,10 +1,11 @@
 #ifndef STREAMINGAPP_GSTREAMERWEBCAMPROVIDER_HPP
 #define STREAMINGAPP_GSTREAMERWEBCAMPROVIDER_HPP
 
+#include <Interfaces/IMediaPipeline.hpp>
 #include <gst/gst.h>
 #include <mutex>
 
-class GStreamerWebcamProvider
+class GStreamerWebcamProvider : public IMediaPipeline
 {
 public:
 	GStreamerWebcamProvider();
@@ -13,32 +14,47 @@ public:
 
 	void InitializePipeline();
 
-	void EnableDebug() const;
+	/*
+		IMediaPipeline start
+	*/
+	virtual void CreatePipeline() override;
+	/*
+		IMediaPipeline end
+	*/
 
-	void CreatePipeline();
+	GstElement*  GetPipeline() const { return Pipeline; }
 
-	void StartPipelinePlaying();
-
-	GstElement* Pipeline = nullptr;
-
-	GstElement* Queue = nullptr;
+	GstElement* GetElementToConnectTo() const { return Queue; }
 
 private:
 	static GstFlowReturn _OnCameraFrameRecieved(GstElement* Sink, gpointer UserData);
 
-	void _CreatePipelineElements();
+	/*
+		IMediaPipeline start
+	*/
+	virtual void _CreatePipelineElements() override;
 
-	void _LinkPipelineElements();
+	virtual void _LinkPipelineElements() override;
 
-	void _SetElementCapsAndProperties();
+	virtual void _SetElementCapsAndProperties() override;
+
+	virtual void _SetupSignals() override;
 
 	void _ConnectElemetsPads();
+	/*
+		IMediaPipeline end
+	*/
 
-	void _SetupSignals();
+	void _EnableDebug() const;
+
+	void _StartPipelinePlaying()const;
 
 	/*
 	*	Pipeline elements
 	*/
+	GstElement* Pipeline = nullptr;
+
+	GstElement* Queue = nullptr;
 
 	GstElement* V4l2src = nullptr;
 

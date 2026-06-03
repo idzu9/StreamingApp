@@ -1,23 +1,24 @@
 #ifndef STREAMINGAPP_IMEDIAPIPELINE_HPP
 #define STREAMINGAPP_IMEDIAPIPELINE_HPP
 
-#include <string>
-
 class IMediaPipeline
 {
 
 public:
 	virtual ~IMediaPipeline() = default;
 
-	virtual void InitializePipeline() = 0;
-
 	virtual void CreatePipeline() = 0;
 
-	virtual void StartPipelinePlaying() = 0;
+protected:
+	virtual void _CreatePipelineElements() = 0;
 
-	virtual void EnableDebug() const = 0;
+	virtual void _LinkPipelineElements() = 0;
 
-	virtual void ProccessTextBuffer(const std::string& TextBuffer) = 0;
+	virtual void _SetElementCapsAndProperties() = 0;
+
+	virtual void _SetupSignals() = 0;
+
+	virtual void _ConnectElemetsPads() = 0;
 };
 
 #endif // STREAMINGAPP_IMEDIAPIPELINE_HPP

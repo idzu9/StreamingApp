@@ -41,16 +41,11 @@ void Server::CreateMediaProvider()
 
 void Server::CreateMediaPipeline()
 {
-	MediaPipeline = std::make_unique<WebrtcPipeline>();
+	MediaPipeline = std::make_unique<WebrtcPipeline>(WebcamProvider->GetPipeline(), WebcamProvider->GetElementToConnectTo());
 
 	if (MediaPipeline)
 	{
-		// refactor it be better than multiple calls
-		MediaPipeline->_CreatePipelineElements();
-		MediaPipeline->_LinkPipelineElements(WebcamProvider->Pipeline);
-		MediaPipeline->_ConnectElemetsPads(WebcamProvider->Queue);
-		MediaPipeline->_SetupSignals();
-		// MediaPipeline->InitializePipeline();
+		MediaPipeline->CreatePipeline();
 	}
 	else
 	{
@@ -67,8 +62,6 @@ void Server::_StartMainLoop()
 
 void Server::StartServer()
 {
-	WebcamProvider->StartPipelinePlaying();
-
 	HttpServerThread = std::thread(&Server::_StartHttpServer, this);
 
 	HttpServerThread.detach();
@@ -77,14 +70,9 @@ void Server::StartServer()
 	
 	_StartMainLoop();
 
-	if (WebcamProvider)
-	{
-		WebcamProvider->EnableDebug();
-	}
-	else
+	if (!WebcamProvider)
 	{
 		std::cout << "[" << __FUNCTION__ << "] media provider is not initialized" << std::endl;
-
 	}
 
 	if (!MediaPipeline)

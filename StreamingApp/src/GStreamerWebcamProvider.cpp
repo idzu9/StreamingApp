@@ -29,7 +29,7 @@ void GStreamerWebcamProvider::InitializePipeline()
 	});
 }
 
-void GStreamerWebcamProvider::EnableDebug() const
+void GStreamerWebcamProvider::_EnableDebug() const
 {
 	std::cout << "GST_DEBUG enabled" << std::endl;
 	setenv("GST_DEBUG", "*:WARN", 1);
@@ -37,11 +37,15 @@ void GStreamerWebcamProvider::EnableDebug() const
 
 void GStreamerWebcamProvider::CreatePipeline()
 {
+	_EnableDebug();
+
 	_CreatePipelineElements();
 	_SetElementCapsAndProperties();
 	_LinkPipelineElements();
 	_ConnectElemetsPads();
 	_SetupSignals();
+
+	_StartPipelinePlaying();
 }
 
 
@@ -106,7 +110,7 @@ void GStreamerWebcamProvider::_LinkPipelineElements()
 
 	if (!gst_element_link_many(Appsrc, VideoconvertFromAppsrc, Tee, nullptr))
 	{
-		g_printerr("Elements could not be linked 2\n");
+		g_printerr("[%s] Elements could not be linked\n", __FUNCTION__);
 		g_object_unref(Pipeline);
 		return;
 	}
@@ -158,14 +162,6 @@ void GStreamerWebcamProvider::_ConnectElemetsPads()
 	gst_pad_link(TeePadForQueue, SinkPadQueue);
 	gst_object_unref(TeePadForQueue);
 	gst_object_unref(SinkPadQueue);
-
-	//gst_element_link_many(Queue, Vp8enc, Rtpvp8pay, nullptr);
-
-	//GstPad* Srcpad = gst_element_get_static_pad(Rtpvp8pay, "src");
-	//GstPad* Sinkpad = gst_element_request_pad_simple(Webrtcbin, "sink_%u");
-	//gst_pad_link(Srcpad, Sinkpad);
-	//gst_object_unref(Srcpad);
-	//gst_object_unref(Sinkpad);
 }
 
 void GStreamerWebcamProvider::_SetupSignals()
@@ -198,7 +194,7 @@ GstFlowReturn GStreamerWebcamProvider::_OnCameraFrameRecieved(GstElement* Sink, 
 		GstVideoInfo Info;
 		if (!gst_video_info_from_caps(&Info, caps))
 		{
-			g_printerr("Failed to parse caps to video info\n");
+			g_printerr("[%s] Failed to parse caps to video info\n", __FUNCTION__);
 			gst_sample_unref(Sample);
 			return GST_FLOW_ERROR;
 		}
@@ -238,14 +234,14 @@ GstFlowReturn GStreamerWebcamProvider::_OnCameraFrameRecieved(GstElement* Sink, 
 	return GST_FLOW_OK;
 }
 
-void GStreamerWebcamProvider::StartPipelinePlaying()
+void GStreamerWebcamProvider::_StartPipelinePlaying() const
 {
 	GstStateChangeReturn StateReturn = gst_element_set_state(Pipeline, GST_STATE_PLAYING);
 	if (StateReturn == GST_STATE_CHANGE_FAILURE)
 	{
-		g_printerr("Unable to set the pipelne to the playing state.\n");
+		g_printerr("[%s] Unable to set the pipelne to the playing state\n", __FUNCTION__);
 		return;
 	}
 
-	std::cout << "GStreamer pipeline set state to Playing." << std::endl;
+	std::cout << "[" << __FUNCTION__  << "] GStreamer pipeline set state to Playing." << std::endl;
 }

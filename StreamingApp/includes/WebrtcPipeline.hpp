@@ -3,41 +3,37 @@
 
 #include "Interfaces/IMediaPipeline.hpp"
 #include "SingleCastDelegate.hpp"
-#include <gst/gst.h>
-#include <gst/webrtc/webrtc.h>
 #include <gst/app/gstappsink.h>
 #include <gst/app/gstappsrc.h>
-#include <gst/video/video.h>
+#include <gst/gst.h>
 #include <gst/video/video-info.h>
+#include <gst/video/video.h>
+#include <gst/webrtc/webrtc.h>
+#include <memory>
+#include <optional>
 
-class WebrtcPipeline// : public IMediaPipeline
+class WebrtcPipeline : public IMediaPipeline
 {
 public:
-	WebrtcPipeline();
+	WebrtcPipeline() = delete;
 
-	~WebrtcPipeline();
+	WebrtcPipeline(GstElement* InPipeline, GstElement* InLinkWithProvider);
 
-	// virtual void InitializePipeline() override;
+	virtual ~WebrtcPipeline();
 
-	// virtual void EnableDebug() const override;
+	/*
+		IMediaPipeline start
+	*/
+	virtual void CreatePipeline() override;
+	/*
+		IMediaPipeline end
+	*/
 
-	//virtual void CreatePipeline() override;
-
-	//virtual void StartPipelinePlaying() override;
-
-	virtual void ProccessTextBuffer(const std::string& TextBuffer);
+	void ProccessTextBuffer(const std::string& TextBuffer);
 
 	Delegate<void, guint, gchar*> OnIceCandidateDelegate;
 
 	Delegate<void, std::string> OnWriteMessageInBuffer;
-
-	void _CreatePipelineElements();
-
-	void _LinkPipelineElements(GstElement* Pipeline);
-
-	void _ConnectElemetsPads(GstElement* ElementToConnect);
-
-	void _SetupSignals();
 
 private:
 
@@ -47,43 +43,34 @@ private:
 
 	static void OnAnswerCreated(GstPromise* Promise, gpointer UserData);
 
-	//static GstFlowReturn OnCameraFrameRecieved(GstElement* Sink, gpointer UserData);
+	/*
+		IMediaPipeline start
+	*/
+	virtual void _CreatePipelineElements() override;
 
-	void _SetElementCapsAndProperties();
+	virtual void _LinkPipelineElements() override;
 
-	///*
-	//*	Pipeline elements
-	//*/
-	//GstElement* Pipeline = nullptr;
+	virtual void _SetElementCapsAndProperties() override;
+
+	virtual void _SetupSignals() override;
+
+	void _ConnectElemetsPads();
+	/*
+		IMediaPipeline end
+	*/
+
+	/*
+	*	Pipeline elements
+	*/
+	GstElement* Pipeline;
 
 	GstElement* Webrtcbin = nullptr;
-	//
-	//GstElement* V4l2src = nullptr;
-	//
-	//GstElement* Videobalance = nullptr;
-	//
-	//GstElement* Videoconvert = nullptr;
-	//
-	//GstElement* Decoder = nullptr;
-	//
-	//GstElement* Appsink = nullptr;
-	//
-	//GstElement* Appsrc = nullptr;
-	//
-	//GstElement* VideoconvertFromAppsrc = nullptr;
-	//
-	//GstElement* Tee = nullptr;
-	//
-	//GstElement* Capsfilter = nullptr;;
-	//
-	//GstElement* Fakesink = nullptr;
-	//
-	//GstElement* Queue = nullptr;
+
+	GstElement* LinkWithProvider = nullptr;
 	
 	GstElement* Vp8enc = nullptr;
 	
 	GstElement* Rtpvp8pay = nullptr;
-
 };
 
 #endif // STREAMINGAPP_WEBRTCPIPELINE_HPP
