@@ -206,11 +206,73 @@ GstFlowReturn GStreamerWebcamProvider::_OnCameraFrameRecieved(GstElement* Sink, 
 		if (gst_buffer_map(Buffer, &Map, GST_MAP_READWRITE))
 		{
 
-			cv::Mat frame(cv::Size(Width, Height), CV_8UC3, (void*)Map.data, cv::Mat::AUTO_STEP);
+			cv::Mat Frame(cv::Size(Width, Height), CV_8UC3, (void*)Map.data, cv::Mat::AUTO_STEP);
 
-			cv::flip(frame, frame, 1);
+			/*
+				Flip the frame
+			*/
+			cv::flip(Frame, Frame, 1);
 
-			cv::putText(frame,
+			/*
+				Face detection part
+			*/
+			std::string cascade_path = "../../../../StreamingApp/resources/haarcascades/haarcascade_frontalface_default.xml";
+
+			cv::CascadeClassifier faceCascade;
+			if (!faceCascade.load(cascade_path))
+			{
+				std::cerr << "Error: Could not load cascade classifier XML file." << std::endl;
+				return GST_FLOW_OK;
+			}
+
+			std::vector<cv::Rect> faces;
+			faceCascade.detectMultiScale(Frame, faces, 1.1, 4, 0, cv::Size(30, 30));
+
+			cv::Mat BluredFrame;
+			cv::GaussianBlur(Frame, BluredFrame, cv::Size(51, 51), 0);
+
+
+
+			cv::Mat background = cv::imread("../../../../StreamingApp/resources/backgrounds/background.png");
+
+			cv::Mat ResizedBackground;
+			cv::resize(background, ResizedBackground, Frame.size());
+
+			cv::Mat FrameCopy = Frame.clone();
+
+			ResizedBackground.copyTo(Frame);
+
+			for (const auto& face : faces)
+			{
+				cv::rectangle(Frame, face, cv::Scalar(0, 255, 0), 3);
+
+
+				/*
+					1. Blur only face
+				*/
+				//cv::Mat faceROI = FrameCopy(face);
+				//cv::GaussianBlur(faceROI, faceROI, cv::Size(51, 51), 0);
+				
+				/*
+					2. Blur everything except face
+				*/
+				//cv::Mat faceROI = Frame(face);
+				//cv::Mat targetROI = BluredFrame(face);
+				//faceROI.copyTo(targetROI);
+				//BluredFrame.copyTo(Frame);
+				//faceROI.copyTo(Frame);
+
+				/*
+					put my face on top of background
+				*/
+				cv::Mat faceROI = FrameCopy(face);
+				cv::Mat targetROI = Frame(face);
+				faceROI.copyTo(targetROI);
+			}
+
+
+
+			cv::putText(Frame,
 				"WebRTC Stream Live",
 				cv::Point(10, 15),
 				cv::FONT_HERSHEY_SIMPLEX,
@@ -218,6 +280,16 @@ GstFlowReturn GStreamerWebcamProvider::_OnCameraFrameRecieved(GstElement* Sink, 
 				cv::Scalar(0, 255, 0),
 				1,
 				cv::FILLED);
+
+			// Apply a Bilateral Filter to remove noise while keeping edges sharp
+			//cv::bilateralFilter(Frame, ProcessedFrame, 9, 75, 75);
+
+			// Convert to a more accurate color space if streaming over networks
+			//cv::cvtColor(ProcessedFrame, ProcessedFrame, cv::COLOR_BGR2YCrCb);
+
+			//cv::fastNlMeansDenoisingColored(Frame, Frame);
+
+			//Frame = ProcessedFrame;
 
 			gst_buffer_unmap(Buffer, &Map);
 		}

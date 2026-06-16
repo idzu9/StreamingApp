@@ -2,6 +2,7 @@
 #include <memory>
 #include "Server.hpp"
 #include "WebrtcPipeline.hpp"
+#include <opencv2/opencv.hpp>
 
 int main(int argc, char* argv[])
 {
@@ -13,6 +14,7 @@ int main(int argc, char* argv[])
 	/*
 		Create loop and pipeline instance (webrtc for now)
 	*/
+
 	ServerInstance->CreateMainLoop();
 	ServerInstance->CreateMediaProvider();
 	ServerInstance->CreateMediaPipeline();
