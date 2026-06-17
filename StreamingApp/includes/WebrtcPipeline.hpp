@@ -54,7 +54,7 @@ private:
 
 	virtual void _SetupSignals() override;
 
-	void _ConnectElemetsPads();
+	void _ConnectElemetsPads() override;
 	/*
 		IMediaPipeline end
 	*/

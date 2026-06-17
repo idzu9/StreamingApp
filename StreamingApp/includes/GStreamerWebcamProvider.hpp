@@ -24,7 +24,11 @@ public:
 
 	GstElement*  GetPipeline() const { return Pipeline; }
 
-	GstElement* GetElementToConnectTo() const { return Queue; }
+	GstElement* GetElementToConnectToWebrtc() const { return WebrtcQueue; }
+
+	GstElement* GetElementToConnectToAutovideo() const { return AutovideoQueue; }
+
+	void _StartPipelinePlaying()const;
 
 private:
 	static GstFlowReturn _OnCameraFrameRecieved(GstElement* Sink, gpointer UserData);
@@ -47,14 +51,14 @@ private:
 
 	void _EnableDebug() const;
 
-	void _StartPipelinePlaying()const;
-
 	/*
 	*	Pipeline elements
 	*/
 	GstElement* Pipeline = nullptr;
 
-	GstElement* Queue = nullptr;
+	GstElement* WebrtcQueue = nullptr;
+
+	GstElement* AutovideoQueue = nullptr;
 
 	GstElement* V4l2src = nullptr;
 

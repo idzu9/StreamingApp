@@ -1,3 +1,6 @@
+#ifndef STREAMINGAPP_SINGLECASTDELEGATE_HPP
+#define STREAMINGAPP_SINGLECASTDELEGATE_HPP
+
 #include <functional>
 
 template<typename ReturnType, typename... Args>
@@ -47,3 +50,5 @@ public:
 private:
 	TargetType DelegateCallBack = nullptr;
 };
+
+#endif // STREAMINGAPP_SINGLECASTDELEGATE_HPP

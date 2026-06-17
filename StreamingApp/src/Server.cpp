@@ -1,6 +1,7 @@
-#include "Server.hpp"
-#include "WebrtcPipeline.hpp"
 #include <GStreamerWebcamProvider.hpp>
+#include <GtkWindowPipeline.hpp>
+#include <Server.hpp>
+#include <WebrtcPipeline.hpp>
 #include <gst/gst.h>
 #include <gst/webrtc/webrtc.h>
 #include <iostream>
@@ -41,15 +42,25 @@ void Server::CreateMediaProvider()
 
 void Server::CreateMediaPipeline()
 {
-	MediaPipeline = std::make_unique<WebrtcPipeline>(WebcamProvider->GetPipeline(), WebcamProvider->GetElementToConnectTo());
+	WebrtcMediaPipeline = std::make_unique<WebrtcPipeline>(WebcamProvider->GetPipeline(), WebcamProvider->GetElementToConnectToWebrtc());
+	GtkWindowMediaPipeline = std::make_unique<GtkWindowPipeline>(WebcamProvider->GetPipeline(), WebcamProvider->GetElementToConnectToAutovideo());
 
-	if (MediaPipeline)
+	if (WebrtcMediaPipeline)
 	{
-		MediaPipeline->CreatePipeline();
+		WebrtcMediaPipeline->CreatePipeline();
 	}
 	else
 	{
-		std::cout << "[" << __FUNCTION__ << "] Failed to create a pipeline" << std::endl;
+		std::cout << "[" << __FUNCTION__ << "] Failed to create a " << boost::typeindex::type_id<WebrtcPipeline>().pretty_name() << " pipeline" << std::endl;
+	}
+
+	if (GtkWindowMediaPipeline)
+	{
+		GtkWindowMediaPipeline->CreatePipeline();
+	}
+	else
+	{
+		std::cout << "[" << __FUNCTION__ << "] Failed to create a " << boost::typeindex::type_id<GtkWindowPipeline>().pretty_name() << " pipeline" << std::endl;
 	}
 }
 
@@ -75,10 +86,16 @@ void Server::StartServer()
 		std::cout << "[" << __FUNCTION__ << "] media provider is not initialized" << std::endl;
 	}
 
-	if (!MediaPipeline)
+	if (!WebrtcMediaPipeline)
 	{
-		std::cout << "[" << __FUNCTION__ << "] media pipeline is not initialized" << std::endl;
+		std::cout << "[" << __FUNCTION__ << "] " << boost::typeindex::type_id<WebrtcPipeline>().pretty_name() << " media pipeline is not initialized" << std::endl;
 		return ;
+	}
+
+	if (!GtkWindowMediaPipeline)
+	{
+		std::cout << "[" << __FUNCTION__ << "] " << boost::typeindex::type_id<GtkWindowPipeline>().pretty_name() << " media pipeline is not initialized" << std::endl;
+		return;
 	}
 
 	if (AppServerThread.joinable())
@@ -167,16 +184,10 @@ void Server::_HandleWebsocketSession(tcp::socket InSocket)
 
 		std::cout << "WebSocket connection accepted" << std::endl;
 
-		//MediaPipeline->CreatePipeline();
+		WebrtcMediaPipeline->OnIceCandidateDelegate.BindDelegate(this, &Server::_SendIceCandidateMessage);
+		WebrtcMediaPipeline->OnWriteMessageInBuffer.BindDelegate(this, &Server::_OnWriteMessageInBuffer);
 
-		//if (Webrtc)
-		//{
-		//	std::cout << "We are working with not Webrtc pipeline atm, but others are not supported" << std::endl;
-		//	return ;
-		//}
-
-		MediaPipeline->OnIceCandidateDelegate.BindDelegate(this, &Server::_SendIceCandidateMessage);
-		MediaPipeline->OnWriteMessageInBuffer.BindDelegate(this, &Server::_OnWriteMessageInBuffer);
+		//WebcamProvider->_StartPipelinePlaying();
 
 		while (true)
 		{
@@ -185,7 +196,7 @@ void Server::_HandleWebsocketSession(tcp::socket InSocket)
 
 			std::string Text = beast::buffers_to_string(Buffer.data());
 			
-			MediaPipeline->ProccessTextBuffer(Text);
+			WebrtcMediaPipeline->ProccessTextBuffer(Text);
 		}
 	}
 	catch (beast::system_error const& Error)

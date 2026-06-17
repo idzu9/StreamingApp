@@ -85,9 +85,11 @@ void GStreamerWebcamProvider::_CreatePipelineElements()
 			2. Branching (Tees): If you are splitting one video source to two places (e.g., saving to a file AND streaming via WebSocket), you should put a queue at the start of each branch so one doesn't slow down the other.
 			3. Network Streaming: It is essential for absorbing "jitter" (small timing variations) in network speeds.
 	*/
-	Queue = gst_element_factory_make("queue", "Queue");
+	WebrtcQueue = gst_element_factory_make("queue", "WebrtcQueue");
 
-	if (!Pipeline || !V4l2src || !Videobalance || !Videoconvert || !Queue || !Decoder
+	AutovideoQueue = gst_element_factory_make("queue", "AutovideQueue");
+
+	if (!Pipeline || !V4l2src || !Videobalance || !Videoconvert || !WebrtcQueue || !AutovideoQueue || !Decoder
 		|| !Tee || !Fakesink || !Appsink || !Appsrc || !VideoconvertFromAppsrc)
 	{
 		g_printerr("[%s] Not all elements could be created\n", __FUNCTION__);
@@ -99,7 +101,7 @@ void GStreamerWebcamProvider::_LinkPipelineElements()
 {
 	gst_bin_add_many(GST_BIN(Pipeline), V4l2src, Capsfilter,
 		Decoder, Videobalance, Videoconvert, Appsink, Appsrc, VideoconvertFromAppsrc,
-		Tee, Fakesink, Queue, nullptr);
+		Tee, Fakesink, WebrtcQueue, AutovideoQueue, nullptr);
 
 	if (!gst_element_link_many(V4l2src, Capsfilter, Decoder, Videobalance, Videoconvert, Appsink, nullptr))
 	{
@@ -143,6 +145,20 @@ void GStreamerWebcamProvider::_SetElementCapsAndProperties()
 		"block", false,
 		nullptr);
 
+	g_object_set(G_OBJECT(WebrtcQueue),
+		"leaky", 2,
+		"max-size-buffers", 2,
+		"max-size-bytes", 0,
+		"max-size-time", (guint64)0,
+		nullptr);
+
+	g_object_set(G_OBJECT(AutovideoQueue),
+		"leaky", 2,
+		"max-size-buffers", 2,
+		"max-size-bytes", 0,
+		"max-size-time", (guint64)0,
+		nullptr);
+
 	GstCaps* bgr_caps = gst_caps_new_simple("video/x-raw", "format", G_TYPE_STRING, "BGR", nullptr);
 	g_object_set(G_OBJECT(Appsink), "caps", bgr_caps, nullptr);
 
@@ -158,10 +174,17 @@ void GStreamerWebcamProvider::_ConnectElemetsPads()
 	gst_object_unref(FakesinkPad);
 
 	GstPad* TeePadForQueue = gst_element_request_pad_simple(Tee, "src_%u");
-	GstPad* SinkPadQueue = gst_element_get_static_pad(Queue, "sink");
-	gst_pad_link(TeePadForQueue, SinkPadQueue);
+	GstPad* SinkPadWebrtcQueue = gst_element_get_static_pad(WebrtcQueue, "sink");
+	gst_pad_link(TeePadForQueue, SinkPadWebrtcQueue);
+
+	GstPad* TeePadForVideoQueue = gst_element_request_pad_simple(Tee, "src_%u");
+	GstPad* SinkPadAutovideoQueue = gst_element_get_static_pad(AutovideoQueue, "sink");
+	gst_pad_link(TeePadForVideoQueue, SinkPadAutovideoQueue);
+
 	gst_object_unref(TeePadForQueue);
-	gst_object_unref(SinkPadQueue);
+	gst_object_unref(TeePadForVideoQueue);
+	gst_object_unref(SinkPadWebrtcQueue);
+	gst_object_unref(SinkPadAutovideoQueue);
 }
 
 void GStreamerWebcamProvider::_SetupSignals()

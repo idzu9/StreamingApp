@@ -18,6 +18,8 @@ pkg_check_modules(GST REQUIRED gstreamer-1.0 gstreamer-webrtc-1.0 gstreamer-sdp-
 find_package(Boost 1.65 REQUIRED COMPONENTS system filesystem json)
 find_package(OpenCV REQUIRED)
 
+pkg_check_modules(GTK3 REQUIRED IMPORTED_TARGET gtk+-3.0)
+
 target_include_directories(StreamingApp PRIVATE 
     ${GST_INCLUDE_DIRS} 
     ${Boost_INCLUDE_DIRS}
@@ -35,6 +37,7 @@ target_link_libraries(StreamingApp
     Boost::filesystem 
     Boost::json 
     ${OpenCV_LIBS}
+    PkgConfig::GTK3
 )
 
 message(STATUS "Project: ${PROJECT_NAME}")
