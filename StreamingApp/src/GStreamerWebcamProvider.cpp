@@ -7,7 +7,6 @@
 #include <gst/video/video.h>
 #include <iostream>
 #include <mutex>
-#include <opencv2/opencv.hpp>
 
 std::once_flag GStreamerWebcamProvider::InitFlag;
 
@@ -47,7 +46,6 @@ void GStreamerWebcamProvider::CreatePipeline()
 
 	_StartPipelinePlaying();
 }
-
 
 void GStreamerWebcamProvider::_CreatePipelineElements()
 {
@@ -191,144 +189,146 @@ GstFlowReturn GStreamerWebcamProvider::_OnCameraFrameRecieved(GstElement* Sink, 
 
 			cv::Mat Frame(cv::Size(Width, Height), CV_8UC3, (void*)Map.data, cv::Mat::AUTO_STEP);
 
-			/*
-				Flip the frame
-			*/
-			cv::flip(Frame, Frame, 1);
+			WebcamProvider->PostProcessFrameDelegate.ExecuteIfBound(Frame);
 
-			/*
-				Face detection part
-			*/
-			std::string cascade_path = "../../../../StreamingApp/resources/haarcascades/haarcascade_frontalface_default.xml";
-			std::string eye_path = "../../../../StreamingApp/resources/haarcascades/haarcascade_eye.xml";
-			std::string smile_path = "../../../../StreamingApp/resources/haarcascades/haarcascade_smile.xml";
+			///*
+			//	Flip the frame
+			//*/
+			//cv::flip(Frame, Frame, 1);
 
-
-			cv::CascadeClassifier faceCascade;
-			if (!faceCascade.load(cascade_path))
-			{
-				std::cerr << "Error: Could not load cascade classifier XML file." << std::endl;
-				return GST_FLOW_OK;
-			}
-
-			cv::CascadeClassifier eyeCascade;
-			if (!eyeCascade.load(eye_path))
-			{
-				std::cerr << "Error: Could not load cascade classifier XML file." << std::endl;
-				return GST_FLOW_OK;
-			}
-
-			cv::CascadeClassifier smileCascade;
-			if (!smileCascade.load(smile_path))
-			{
-				std::cerr << "Error: Could not load cascade classifier XML file." << std::endl;
-				return GST_FLOW_OK;
-			}
-
-			std::vector<cv::Rect> faces;
-			std::vector<cv::Rect> eyes;
-			std::vector<cv::Rect> smiles;
-
-			faceCascade.detectMultiScale(Frame, faces, 1.1, 4, 0, cv::Size(20, 20));
-
-			cv::Mat BluredFrame;
-			cv::GaussianBlur(Frame, BluredFrame, cv::Size(51, 51), 0);
+			///*
+			//	Face detection part
+			//*/
+			//std::string cascade_path = "../../../../StreamingApp/resources/haarcascades/haarcascade_frontalface_default.xml";
+			//std::string eye_path = "../../../../StreamingApp/resources/haarcascades/haarcascade_eye.xml";
+			//std::string smile_path = "../../../../StreamingApp/resources/haarcascades/haarcascade_smile.xml";
 
 
-			/*
-				adding background and me there in small square
-			*/
-			//cv::Mat background = cv::imread("../../../../StreamingApp/resources/backgrounds/background.png");
+			//cv::CascadeClassifier faceCascade;
+			//if (!faceCascade.load(cascade_path))
+			//{
+			//	std::cerr << "Error: Could not load cascade classifier XML file." << std::endl;
+			//	return GST_FLOW_OK;
+			//}
 
-			//cv::Mat ResizedBackground;
-			//cv::resize(background, ResizedBackground, Frame.size());
+			//cv::CascadeClassifier eyeCascade;
+			//if (!eyeCascade.load(eye_path))
+			//{
+			//	std::cerr << "Error: Could not load cascade classifier XML file." << std::endl;
+			//	return GST_FLOW_OK;
+			//}
 
-			//cv::Mat FrameCopy = Frame.clone();
+			//cv::CascadeClassifier smileCascade;
+			//if (!smileCascade.load(smile_path))
+			//{
+			//	std::cerr << "Error: Could not load cascade classifier XML file." << std::endl;
+			//	return GST_FLOW_OK;
+			//}
 
-			//ResizedBackground.copyTo(Frame);
+			//std::vector<cv::Rect> faces;
+			//std::vector<cv::Rect> eyes;
+			//std::vector<cv::Rect> smiles;
 
-			for (const auto& face : faces)
-			{
-				cv::rectangle(Frame, face, cv::Scalar(0, 255, 0), 3);
+			//faceCascade.detectMultiScale(Frame, faces, 1.1, 4, 0, cv::Size(20, 20));
 
-				smileCascade.detectMultiScale(Frame(face), smiles, 1.8, 22);
-
-				for (const auto& smile : smiles)
-				{
-					cv::rectangle(Frame(face), smile, cv::Scalar(0, 0, 255), 3);
-				}
-
-				eyeCascade.detectMultiScale(Frame(face), eyes, 1.1, 22);
-
-				for (const auto& eye : eyes)
-				{
-					cv::rectangle(Frame(face), eye, cv::Scalar(255, 0, 0), 3);
+			//cv::Mat BluredFrame;
+			//cv::GaussianBlur(Frame, BluredFrame, cv::Size(51, 51), 0);
 
 
-					/*
-						1. Blur only face
-					*/
-					//cv::Mat faceROI = FrameCopy(face);
-					//cv::GaussianBlur(faceROI, faceROI, cv::Size(51, 51), 0);
+			///*
+			//	adding background and me there in small square
+			//*/
+			////cv::Mat background = cv::imread("../../../../StreamingApp/resources/backgrounds/background.png");
 
-					/*
-						2. Blur everything except face
-					*/
-					//cv::Mat faceROI = Frame(face);
-					//cv::Mat targetROI = BluredFrame(face);
-					//faceROI.copyTo(targetROI);
-					//BluredFrame.copyTo(Frame);
-					//faceROI.copyTo(Frame);
+			////cv::Mat ResizedBackground;
+			////cv::resize(background, ResizedBackground, Frame.size());
 
-					/*
-						put my face on top of background
-					*/
-					//cv::Mat faceROI = FrameCopy(face);
-					//cv::Mat targetROI = Frame(face);
-					//faceROI.copyTo(targetROI);
-				}
+			////cv::Mat FrameCopy = Frame.clone();
 
-				/*
-					1. Blur only face
-				*/
-				//cv::Mat faceROI = FrameCopy(face);
-				//cv::GaussianBlur(faceROI, faceROI, cv::Size(51, 51), 0);
-				
-				/*
-					2. Blur everything except face
-				*/
-				//cv::Mat faceROI = Frame(face);
-				//cv::Mat targetROI = BluredFrame(face);
-				//faceROI.copyTo(targetROI);
-				//BluredFrame.copyTo(Frame);
-				//faceROI.copyTo(Frame);
+			////ResizedBackground.copyTo(Frame);
 
-				/*
-					put my face on top of background
-				*/
-				//cv::Mat faceROI = FrameCopy(face);
-				//cv::Mat targetROI = Frame(face);
-				//faceROI.copyTo(targetROI);
-			}
+			//for (const auto& face : faces)
+			//{
+			//	cv::rectangle(Frame, face, cv::Scalar(0, 255, 0), 3);
 
-			cv::putText(Frame,
-				"WebRTC Stream Live",
-				cv::Point(10, 15),
-				cv::FONT_HERSHEY_SIMPLEX,
-				0.6,
-				cv::Scalar(0, 255, 0),
-				1,
-				cv::FILLED);
+			//	smileCascade.detectMultiScale(Frame(face), smiles, 1.8, 22);
 
-			// Apply a Bilateral Filter to remove noise while keeping edges sharp
-			//cv::bilateralFilter(Frame, ProcessedFrame, 9, 75, 75);
+			//	for (const auto& smile : smiles)
+			//	{
+			//		cv::rectangle(Frame(face), smile, cv::Scalar(0, 0, 255), 3);
+			//	}
 
-			// Convert to a more accurate color space if streaming over networks
-			//cv::cvtColor(ProcessedFrame, ProcessedFrame, cv::COLOR_BGR2YCrCb);
+			//	eyeCascade.detectMultiScale(Frame(face), eyes, 1.1, 22);
 
-			//cv::fastNlMeansDenoisingColored(Frame, Frame);
+			//	for (const auto& eye : eyes)
+			//	{
+			//		cv::rectangle(Frame(face), eye, cv::Scalar(255, 0, 0), 3);
 
-			//Frame = ProcessedFrame;
+
+			//		/*
+			//			1. Blur only face
+			//		*/
+			//		//cv::Mat faceROI = FrameCopy(face);
+			//		//cv::GaussianBlur(faceROI, faceROI, cv::Size(51, 51), 0);
+
+			//		/*
+			//			2. Blur everything except face
+			//		*/
+			//		//cv::Mat faceROI = Frame(face);
+			//		//cv::Mat targetROI = BluredFrame(face);
+			//		//faceROI.copyTo(targetROI);
+			//		//BluredFrame.copyTo(Frame);
+			//		//faceROI.copyTo(Frame);
+
+			//		/*
+			//			put my face on top of background
+			//		*/
+			//		//cv::Mat faceROI = FrameCopy(face);
+			//		//cv::Mat targetROI = Frame(face);
+			//		//faceROI.copyTo(targetROI);
+			//	}
+
+			//	/*
+			//		1. Blur only face
+			//	*/
+			//	//cv::Mat faceROI = FrameCopy(face);
+			//	//cv::GaussianBlur(faceROI, faceROI, cv::Size(51, 51), 0);
+			//	
+			//	/*
+			//		2. Blur everything except face
+			//	*/
+			//	//cv::Mat faceROI = Frame(face);
+			//	//cv::Mat targetROI = BluredFrame(face);
+			//	//faceROI.copyTo(targetROI);
+			//	//BluredFrame.copyTo(Frame);
+			//	//faceROI.copyTo(Frame);
+
+			//	/*
+			//		put my face on top of background
+			//	*/
+			//	//cv::Mat faceROI = FrameCopy(face);
+			//	//cv::Mat targetROI = Frame(face);
+			//	//faceROI.copyTo(targetROI);
+			//}
+
+			//cv::putText(Frame,
+			//	"WebRTC Stream Live",
+			//	cv::Point(10, 15),
+			//	cv::FONT_HERSHEY_SIMPLEX,
+			//	0.6,
+			//	cv::Scalar(0, 255, 0),
+			//	1,
+			//	cv::FILLED);
+
+			//// Apply a Bilateral Filter to remove noise while keeping edges sharp
+			////cv::bilateralFilter(Frame, ProcessedFrame, 9, 75, 75);
+
+			//// Convert to a more accurate color space if streaming over networks
+			////cv::cvtColor(ProcessedFrame, ProcessedFrame, cv::COLOR_BGR2YCrCb);
+
+			////cv::fastNlMeansDenoisingColored(Frame, Frame);
+
+			////Frame = ProcessedFrame;
 
 			gst_buffer_unmap(Buffer, &Map);
 		}

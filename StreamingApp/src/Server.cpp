@@ -6,7 +6,6 @@
 #include <gst/webrtc/webrtc.h>
 #include <iostream>
 #include <memory>
-#include <opencv2/opencv.hpp>
 #include <thread>
 
 Server::Server()
@@ -44,6 +43,7 @@ void Server::CreateMediaPipeline()
 {
 	WebrtcMediaPipeline = std::make_unique<WebrtcPipeline>(WebcamProvider->GetPipeline(), WebcamProvider->RequestQueue());
 	GtkWindowMediaPipeline = std::make_unique<GtkWindowPipeline>(WebcamProvider->GetPipeline(), WebcamProvider->RequestQueue());
+	FramePostProcessing = std::make_unique<FramePostProcessingHandler>();
 
 	if (WebrtcMediaPipeline)
 	{
@@ -61,6 +61,15 @@ void Server::CreateMediaPipeline()
 	else
 	{
 		std::cout << "[" << __FUNCTION__ << "] Failed to create a " << boost::typeindex::type_id<GtkWindowPipeline>().pretty_name() << " pipeline" << std::endl;
+	}
+
+	if (FramePostProcessing)
+	{
+		WebcamProvider->PostProcessFrameDelegate.BindDelegate(FramePostProcessing.get(), &FramePostProcessingHandler::PostProcessFrame);
+	}
+	else
+	{
+		std::cout << "[" << __FUNCTION__ << "] Failed to create a " << boost::typeindex::type_id<FramePostProcessingHandler>().pretty_name() << " frame post processor" << std::endl;
 	}
 }
 
@@ -186,8 +195,6 @@ void Server::_HandleWebsocketSession(tcp::socket InSocket)
 
 		WebrtcMediaPipeline->OnIceCandidateDelegate.BindDelegate(this, &Server::_SendIceCandidateMessage);
 		WebrtcMediaPipeline->OnWriteMessageInBuffer.BindDelegate(this, &Server::_OnWriteMessageInBuffer);
-
-		//WebcamProvider->_StartPipelinePlaying();
 
 		while (true)
 		{

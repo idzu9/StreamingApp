@@ -1,14 +1,15 @@
 #ifndef STREAMINGAPP_SERVER_HPP
 #define STREAMINGAPP_SERVER_HPP
 
-#include <thread>
-#include <memory>
-#include <optional>
+#include <FramePostProcessingHandler.hpp>
 #include <boost/asio.hpp>
 #include <boost/beast.hpp>
 #include <boost/json.hpp>
 #include <boost/type_index.hpp>
 #include <glib.h>
+#include <memory>
+#include <optional>
+#include <thread>
 
 class WebrtcPipeline;
 class GtkWindowPipeline;
@@ -71,6 +72,8 @@ private:
 	std::unique_ptr<GtkWindowPipeline> GtkWindowMediaPipeline;
 
 	std::unique_ptr<GStreamerWebcamProvider> WebcamProvider;
+
+	std::unique_ptr<FramePostProcessingHandler> FramePostProcessing;
 
 	std::optional<boost::asio::ip::tcp::socket> Socket;
 };

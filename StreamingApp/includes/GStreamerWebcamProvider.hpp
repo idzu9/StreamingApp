@@ -2,8 +2,10 @@
 #define STREAMINGAPP_GSTREAMERWEBCAMPROVIDER_HPP
 
 #include <Interfaces/IMediaPipeline.hpp>
+#include <SingleCastDelegate.hpp>
 #include <gst/gst.h>
 #include <mutex>
+#include <opencv2/opencv.hpp>
 #include <vector>
 
 class GStreamerWebcamProvider : public IMediaPipeline
@@ -28,6 +30,11 @@ public:
 	GstElement* RequestQueue();
 
 	void _StartPipelinePlaying()const;
+
+	/*
+		Frame processing delegate
+	*/
+	Delegate<void, cv::Mat&> PostProcessFrameDelegate;
 
 private:
 	static GstFlowReturn _OnCameraFrameRecieved(GstElement* Sink, gpointer UserData);
