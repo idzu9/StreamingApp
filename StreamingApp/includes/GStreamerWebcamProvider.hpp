@@ -4,6 +4,7 @@
 #include <Interfaces/IMediaPipeline.hpp>
 #include <gst/gst.h>
 #include <mutex>
+#include <vector>
 
 class GStreamerWebcamProvider : public IMediaPipeline
 {
@@ -24,9 +25,7 @@ public:
 
 	GstElement*  GetPipeline() const { return Pipeline; }
 
-	GstElement* GetElementToConnectToWebrtc() const { return WebrtcQueue; }
-
-	GstElement* GetElementToConnectToAutovideo() const { return AutovideoQueue; }
+	GstElement* RequestQueue();
 
 	void _StartPipelinePlaying()const;
 
@@ -51,14 +50,16 @@ private:
 
 	void _EnableDebug() const;
 
+	void _AddQueueToPieplineAndLink(GstElement* InQueue);
+
+	void _SetQueueProperties(GstElement* InQueue);
+
 	/*
 	*	Pipeline elements
 	*/
 	GstElement* Pipeline = nullptr;
 
-	GstElement* WebrtcQueue = nullptr;
-
-	GstElement* AutovideoQueue = nullptr;
+	std::vector<GstElement*> Queues;
 
 	GstElement* V4l2src = nullptr;
 

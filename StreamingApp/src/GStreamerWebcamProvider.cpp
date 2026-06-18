@@ -72,24 +72,7 @@ void GStreamerWebcamProvider::_CreatePipelineElements()
 	Capsfilter = gst_element_factory_make("capsfilter", "Capsfilter");
 	Fakesink = gst_element_factory_make("fakesink", "Fakesink");
 
-	/*
-		Without a queue, a GStreamer pipeline typically runs in a single thread
-		(the source pushes data directly to the sink). When you add a queue, it acts as a buffer that decouples the elements before it from the elements after it.
-		What it does:
-			1. Threading: It starts a new thread for the downstream part of the pipeline.
-			2. Buffering: It stores data in a memory buffer. If the source is faster than the sink, the queue holds the data until the sink is ready.
-			3. Prevents Blocking: It ensures that if one part of the pipeline (like an encoder) is slow, it doesn't freeze the entire pipeline (like the camera capture).
-
-		When you MUST use it:
-			1. Multithreading: Whenever you want different parts of your pipeline to run on different CPU cores.
-			2. Branching (Tees): If you are splitting one video source to two places (e.g., saving to a file AND streaming via WebSocket), you should put a queue at the start of each branch so one doesn't slow down the other.
-			3. Network Streaming: It is essential for absorbing "jitter" (small timing variations) in network speeds.
-	*/
-	WebrtcQueue = gst_element_factory_make("queue", "WebrtcQueue");
-
-	AutovideoQueue = gst_element_factory_make("queue", "AutovideQueue");
-
-	if (!Pipeline || !V4l2src || !Videobalance || !Videoconvert || !WebrtcQueue || !AutovideoQueue || !Decoder
+	if (!Pipeline || !V4l2src || !Videobalance || !Videoconvert || !Decoder
 		|| !Tee || !Fakesink || !Appsink || !Appsrc || !VideoconvertFromAppsrc)
 	{
 		g_printerr("[%s] Not all elements could be created\n", __FUNCTION__);
@@ -99,9 +82,12 @@ void GStreamerWebcamProvider::_CreatePipelineElements()
 
 void GStreamerWebcamProvider::_LinkPipelineElements()
 {
+/*
+	will use gst_bin_add(Pipeline, queues[i]
+*/
 	gst_bin_add_many(GST_BIN(Pipeline), V4l2src, Capsfilter,
 		Decoder, Videobalance, Videoconvert, Appsink, Appsrc, VideoconvertFromAppsrc,
-		Tee, Fakesink, WebrtcQueue, AutovideoQueue, nullptr);
+		Tee, Fakesink, nullptr);
 
 	if (!gst_element_link_many(V4l2src, Capsfilter, Decoder, Videobalance, Videoconvert, Appsink, nullptr))
 	{
@@ -145,20 +131,6 @@ void GStreamerWebcamProvider::_SetElementCapsAndProperties()
 		"block", false,
 		nullptr);
 
-	g_object_set(G_OBJECT(WebrtcQueue),
-		"leaky", 2,
-		"max-size-buffers", 2,
-		"max-size-bytes", 0,
-		"max-size-time", (guint64)0,
-		nullptr);
-
-	g_object_set(G_OBJECT(AutovideoQueue),
-		"leaky", 2,
-		"max-size-buffers", 2,
-		"max-size-bytes", 0,
-		"max-size-time", (guint64)0,
-		nullptr);
-
 	GstCaps* bgr_caps = gst_caps_new_simple("video/x-raw", "format", G_TYPE_STRING, "BGR", nullptr);
 	g_object_set(G_OBJECT(Appsink), "caps", bgr_caps, nullptr);
 
@@ -170,21 +142,9 @@ void GStreamerWebcamProvider::_ConnectElemetsPads()
 	GstPad* TeePadForFakesink = gst_element_request_pad_simple(Tee, "src_%u");
 	GstPad* FakesinkPad = gst_element_get_static_pad(Fakesink, "sink");
 	gst_pad_link(TeePadForFakesink, FakesinkPad);
+	
 	gst_object_unref(TeePadForFakesink);
 	gst_object_unref(FakesinkPad);
-
-	GstPad* TeePadForQueue = gst_element_request_pad_simple(Tee, "src_%u");
-	GstPad* SinkPadWebrtcQueue = gst_element_get_static_pad(WebrtcQueue, "sink");
-	gst_pad_link(TeePadForQueue, SinkPadWebrtcQueue);
-
-	GstPad* TeePadForVideoQueue = gst_element_request_pad_simple(Tee, "src_%u");
-	GstPad* SinkPadAutovideoQueue = gst_element_get_static_pad(AutovideoQueue, "sink");
-	gst_pad_link(TeePadForVideoQueue, SinkPadAutovideoQueue);
-
-	gst_object_unref(TeePadForQueue);
-	gst_object_unref(TeePadForVideoQueue);
-	gst_object_unref(SinkPadWebrtcQueue);
-	gst_object_unref(SinkPadAutovideoQueue);
 }
 
 void GStreamerWebcamProvider::_SetupSignals()
@@ -395,4 +355,67 @@ void GStreamerWebcamProvider::_StartPipelinePlaying() const
 	}
 
 	std::cout << "[" << __FUNCTION__  << "] GStreamer pipeline set state to Playing." << std::endl;
+}
+
+GstElement* GStreamerWebcamProvider::RequestQueue()
+{
+	for (auto Queue : Queues)
+	{
+		GstPad* QueuePad = gst_element_get_static_pad(Queue, "sink");
+		if (!gst_pad_is_linked(QueuePad))
+		{
+			return Queue;
+		}
+	}
+
+	GstElement* Queue = gst_element_factory_make("queue", "queue_" + Queues.size());
+	if (!Queue)
+	{
+		g_printerr("[%s] Not all elements could be created\n", __FUNCTION__);
+		return nullptr;
+	}
+
+	_AddQueueToPieplineAndLink(Queue);
+	_SetQueueProperties(Queue);
+	Queues.push_back(Queue);
+
+	return Queue;
+}
+
+void GStreamerWebcamProvider::_AddQueueToPieplineAndLink(GstElement* InQueue)
+{
+	/*
+		Without a queue, a GStreamer pipeline typically runs in a single thread
+		(the source pushes data directly to the sink). When you add a queue, it acts as a buffer that decouples the elements before it from the elements after it.
+		What it does:
+			1. Threading: It starts a new thread for the downstream part of the pipeline.
+			2. Buffering: It stores data in a memory buffer. If the source is faster than the sink, the queue holds the data until the sink is ready.
+			3. Prevents Blocking: It ensures that if one part of the pipeline (like an encoder) is slow, it doesn't freeze the entire pipeline (like the camera capture).
+
+		When you MUST use it:
+			1. Multithreading: Whenever you want different parts of your pipeline to run on different CPU cores.
+			2. Branching (Tees): If you are splitting one video source to two places (e.g., saving to a file AND streaming via WebSocket), you should put a queue at the start of each branch so one doesn't slow down the other.
+			3. Network Streaming: It is essential for absorbing "jitter" (small timing variations) in network speeds.
+	*/
+
+	gst_bin_add(GST_BIN(Pipeline), InQueue);
+
+	gst_element_sync_state_with_parent(InQueue);
+
+	GstPad* TeePadForQueue = gst_element_request_pad_simple(Tee, "src_%u");
+	GstPad* SinkPadQueue = gst_element_get_static_pad(InQueue, "sink");
+	gst_pad_link(TeePadForQueue, SinkPadQueue);
+
+	gst_object_unref(TeePadForQueue);
+	gst_object_unref(SinkPadQueue);
+}
+
+void GStreamerWebcamProvider::_SetQueueProperties(GstElement* InQueue)
+{
+	g_object_set(G_OBJECT(InQueue),
+		"leaky", 2,
+		"max-size-buffers", 2,
+		"max-size-bytes", 0,
+		"max-size-time", (guint64)0,
+		nullptr);
 }

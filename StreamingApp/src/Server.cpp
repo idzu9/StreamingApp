@@ -42,8 +42,8 @@ void Server::CreateMediaProvider()
 
 void Server::CreateMediaPipeline()
 {
-	WebrtcMediaPipeline = std::make_unique<WebrtcPipeline>(WebcamProvider->GetPipeline(), WebcamProvider->GetElementToConnectToWebrtc());
-	GtkWindowMediaPipeline = std::make_unique<GtkWindowPipeline>(WebcamProvider->GetPipeline(), WebcamProvider->GetElementToConnectToAutovideo());
+	WebrtcMediaPipeline = std::make_unique<WebrtcPipeline>(WebcamProvider->GetPipeline(), WebcamProvider->RequestQueue());
+	GtkWindowMediaPipeline = std::make_unique<GtkWindowPipeline>(WebcamProvider->GetPipeline(), WebcamProvider->RequestQueue());
 
 	if (WebrtcMediaPipeline)
 	{
