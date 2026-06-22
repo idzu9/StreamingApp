@@ -16,9 +16,17 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(GST REQUIRED gstreamer-1.0 gstreamer-webrtc-1.0 gstreamer-sdp-1.0 gstreamer-app-1.0 gstreamer-video-1.0)
 
 find_package(Boost 1.65 REQUIRED COMPONENTS system filesystem json)
-find_package(OpenCV REQUIRED)
+
+set(OpenCV_DIR "/usr/local/lib/cmake/opencv4")
+find_package(OpenCV REQUIRED COMPONENTS core imgproc cudaarithm cudaimgproc cudafilters xobjdetect photo)
+INCLUDE_DIRECTORIES( ${OpenCV_INCLUDE_DIRS} )
+
+find_package(CUDA REQUIRED)
+message(STATUS "    libraries: ${CUDA_LIBS}")
 
 pkg_check_modules(GTK3 REQUIRED IMPORTED_TARGET gtk+-3.0)
+
+message(STATUS "FOUND OPENCV VERSION: ${OpenCV_VERSION} AT ${OpenCV_DIR}")
 
 target_include_directories(StreamingApp PRIVATE 
     ${GST_INCLUDE_DIRS} 

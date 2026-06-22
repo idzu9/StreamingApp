@@ -2,6 +2,7 @@
 #define STREAMINGAPP_POSTPROCESSINGLAYERBASE_HPP
 
 #include <opencv2/opencv.hpp>
+#include <opencv2/xobjdetect.hpp>
 
 class PostProcessingLayerBase
 {

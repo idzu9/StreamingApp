@@ -3,7 +3,7 @@
 #
 
 # Add source to this project's executable.
-add_executable (StreamingApp "app/main.cpp"  "src/Server.cpp"  "src/WebrtcPipeline.cpp" "src/GStreamerWebcamProvider.cpp" "src/GtkWindowPipeline.cpp" "src/FramePostProcessingHandler.cpp" "src/PostProcessingLayerBase.cpp" "src/PostProcessingFaceDetectionLayer.cpp")
+add_executable (StreamingApp "app/main.cpp"  "src/Server.cpp"  "src/WebrtcPipeline.cpp" "src/GStreamerWebcamProvider.cpp" "src/GtkWindowPipeline.cpp" "src/FramePostProcessingHandler.cpp" "src/PostProcessingLayerBase.cpp" "src/PostProcessingFaceDetectionLayer.cpp" "src/PostProcessingFrameDenoisingLayer.cpp")
 
 target_include_directories(StreamingApp PRIVATE 
     includes

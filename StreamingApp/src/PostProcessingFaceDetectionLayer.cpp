@@ -28,7 +28,7 @@ PostProcessingFaceDetectionLayer::PostProcessingFaceDetectionLayer()
 		return;
 	}
 
-	//DeactivateLayer();
+	DeactivateLayer();
 }
 
 PostProcessingFaceDetectionLayer::~PostProcessingFaceDetectionLayer()
