@@ -20,27 +20,10 @@ private:
 	*/
 	static const std::string FaceCascadePath;
 
-	static const std::string EyePath;
-
-	static const std::string SmilePath;
-
 	/*
 		clasifiers objects
 	*/
-	cv::CascadeClassifier FaceCascade;
-
-	cv::CascadeClassifier EyeCascade;
-
-	cv::CascadeClassifier SmileCascade;
-
-	/*
-		rectangles with detected objects
-	*/
-	std::vector<cv::Rect> Faces;
-
-	std::vector<cv::Rect> Eyes;
-	
-	std::vector<cv::Rect> Smiles;
+	cv::Ptr<cv::FaceDetectorYN> FaceDetector;
 };
 
 #endif // STREAMINGAPP_POSTPROCESSINGFACEDETECTIONLAYER_HPP
