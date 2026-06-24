@@ -18,7 +18,7 @@ pkg_check_modules(GST REQUIRED gstreamer-1.0 gstreamer-webrtc-1.0 gstreamer-sdp-
 find_package(Boost 1.65 REQUIRED COMPONENTS system filesystem json)
 
 set(OpenCV_DIR "/usr/local/lib/cmake/opencv4")
-find_package(OpenCV REQUIRED COMPONENTS core imgproc cudaarithm cudaimgproc cudafilters xobjdetect photo)
+find_package(OpenCV REQUIRED COMPONENTS core imgproc cudaarithm cudaimgproc videoio highgui cudafilters xobjdetect photo)
 INCLUDE_DIRECTORIES( ${OpenCV_INCLUDE_DIRS} )
 
 find_package(CUDA REQUIRED)

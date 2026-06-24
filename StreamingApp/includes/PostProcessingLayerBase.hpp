@@ -20,7 +20,7 @@ public:
 	virtual void PostProcessFrame(cv::Mat& InFrame);
 
 private:
-	bool _bIsActive = true;
+	bool _bIsActive = false;
 };
 
 #endif // STREAMINGAPP_POSTPROCESSINGLAYERBASE_HPP

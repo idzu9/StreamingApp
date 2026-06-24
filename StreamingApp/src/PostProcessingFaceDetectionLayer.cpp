@@ -13,7 +13,7 @@ PostProcessingFaceDetectionLayer::PostProcessingFaceDetectionLayer()
 
 	if (FaceDetector.empty())
 	{
-		DeactivateLayer();
+		std::cerr << "Error: Face detection model was not loaded." << std::endl;
 	}
 }
 
@@ -26,8 +26,8 @@ void PostProcessingFaceDetectionLayer::PostProcessFrame(cv::Mat& InFrame)
 {
 	/*
 		Flip the frame
+		cv::flip(InFrame, InFrame, 1);
 	*/
-	cv::flip(InFrame, InFrame, 1);
 
 	/*
 		Detect face

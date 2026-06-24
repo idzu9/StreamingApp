@@ -1,6 +1,7 @@
 #include <FramePostProcessingHandler.hpp>
 #include <PostProcessingFaceDetectionLayer.hpp>
 #include <PostProcessingFrameDenoisingLayer.hpp>
+#include <PostProcessingHumanSegmentationLayer.hpp>
 #include <boost/type_index.hpp>
 #include <iostream>
 
@@ -8,8 +9,9 @@ FramePostProcessingHandler::FramePostProcessingHandler()
 {
 	std::cout << boost::typeindex::type_id<FramePostProcessingHandler>().pretty_name() << " handler instance is created" << std::endl;
 
-	PostProcessLayers.emplace("face_detection", std::make_unique<PostProcessingFaceDetectionLayer>());
+	PostProcessLayers.emplace("blur_face", std::make_unique<PostProcessingFaceDetectionLayer>());
 	PostProcessLayers.emplace("denoise", std::make_unique<PostProcessingFrameDenoisingLayer>());
+	PostProcessLayers.emplace("human_segmentation", std::make_unique<PostProcessingHumanSegmentationLayer>());
 }
 
 FramePostProcessingHandler::~FramePostProcessingHandler()
@@ -43,7 +45,6 @@ void FramePostProcessingHandler::ToggleLayerByName(const std::string& InLayerNam
 		else
 		{
 			PostProcessLayers[InLayerName]->DeactivateLayer();
-
 		}
 	}
 	else

@@ -6,6 +6,9 @@
 <body>
     <video id="video" autoplay playsinline muted style="width: 100%; background: black; max-width: 640px; max-height: 480px;"></video>
     <button onclick="alterImage('denoise')">Denoise</button>
+    <button onclick="alterImage('blur_face')">Blur Face</button>
+    <button onclick="alterImage('human_segmentation')">Human Segmentation</button>
+
     <script>
         const video = document.getElementById('video');
         const signaling = new WebSocket('ws://localhost:8443/ws');

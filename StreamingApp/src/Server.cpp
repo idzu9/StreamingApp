@@ -209,7 +209,6 @@ void Server::_HandleWebsocketSession(tcp::socket InSocket)
 			boost::json::object JsonObject = JsonValue.as_object();
 			std::string Type = JsonObject["type"].as_string().c_str();
 
-
 			if (Type == "action")
 			{
 				std::string Action = JsonObject["action"].as_string().c_str();
