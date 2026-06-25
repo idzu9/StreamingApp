@@ -14,6 +14,8 @@ public:
 
 	virtual void PostProcessFrame(cv::Mat& InFrame) override;
 
+	const std::vector<cv::Mat>& GetFacesRoi() const;
+
 private:
 	/*
 		models paths
@@ -24,6 +26,16 @@ private:
 		clasifiers objects
 	*/
 	cv::Ptr<cv::FaceDetectorYN> FaceDetector;
+
+	/*
+		Detected faces
+	*/
+	std::vector<cv::Mat> FacesRoi;
+
+	/*
+		enable debug drawing of the rectangles/circles around face and eyes
+	*/
+	bool bDebugDrawEnabled = false;
 };
 
 #endif // STREAMINGAPP_POSTPROCESSINGFACEDETECTIONLAYER_HPP

@@ -22,6 +22,8 @@ public:
 
 private:
 	std::map<std::string, std::unique_ptr<PostProcessingLayerBase>> PostProcessLayers;
+
+	void FeedOtherLayersWithFaceDecetionData();
 };
 
 #endif // STREAMINGAPP_FRAMEPOSTPROCESSINGHANDLER_HPP

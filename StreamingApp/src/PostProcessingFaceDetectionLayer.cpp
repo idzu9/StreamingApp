@@ -15,6 +15,11 @@ PostProcessingFaceDetectionLayer::PostProcessingFaceDetectionLayer()
 	{
 		std::cerr << "Error: Face detection model was not loaded." << std::endl;
 	}
+
+	/*
+		face regognition will always work in the background
+	*/
+	ActivateLayer();
 }
 
 PostProcessingFaceDetectionLayer::~PostProcessingFaceDetectionLayer()
@@ -24,10 +29,7 @@ PostProcessingFaceDetectionLayer::~PostProcessingFaceDetectionLayer()
 
 void PostProcessingFaceDetectionLayer::PostProcessFrame(cv::Mat& InFrame)
 {
-	/*
-		Flip the frame
-		cv::flip(InFrame, InFrame, 1);
-	*/
+	FacesRoi.clear();
 
 	/*
 		Detect face
@@ -45,21 +47,32 @@ void PostProcessingFaceDetectionLayer::PostProcessFrame(cv::Mat& InFrame)
 		/*
 			Blur the face
 		*/
-		cv::rectangle(InFrame, cv::Rect(x, y, w, h), cv::Scalar(0, 255, 0), 2);
+		if (bDebugDrawEnabled)
+		{
+			cv::rectangle(InFrame, cv::Rect(x, y, w, h), cv::Scalar(0, 255, 0), 2);
+		}
+
 		cv::Rect FaceRect = cv::Rect(x, y, w, h) & cv::Rect(0, 0, InFrame.cols, InFrame.rows);
-		cv::Mat faceROI = InFrame(FaceRect);
-		cv::GaussianBlur(faceROI, faceROI, cv::Size(51, 51), 0);
+		cv::Mat FaceROI = InFrame(FaceRect);
+		FacesRoi.push_back(FaceROI);
 
 		/*
 			Eyes detection
+		*/
+		int RightEyeX = static_cast<int>(Faces.at<float>(i, 4));
+		int RightEyeY = static_cast<int>(Faces.at<float>(i, 5));
+		int LeftEyeX = static_cast<int>(Faces.at<float>(i, 6));
+		int LeftEyeY = static_cast<int>(Faces.at<float>(i, 7));
 
-			int RightEyeX = static_cast<int>(Faces.at<float>(i, 4));
-			int RightEyeY = static_cast<int>(Faces.at<float>(i, 5));
-			int LeftEyeX = static_cast<int>(Faces.at<float>(i, 6));
-			int LeftEyeY = static_cast<int>(Faces.at<float>(i, 7));
-
+		if (bDebugDrawEnabled)
+		{
 			cv::circle(InFrame, cv::Point(RightEyeX, RightEyeY), 20, cv::Scalar(255, 0, 0), -1);
 			cv::circle(InFrame, cv::Point(LeftEyeX, LeftEyeY), 20, cv::Scalar(255, 0, 0), -1);
-		*/
+		}
 	}
+}
+
+const std::vector<cv::Mat>& PostProcessingFaceDetectionLayer::GetFacesRoi() const
+{
+	return FacesRoi;
 }
