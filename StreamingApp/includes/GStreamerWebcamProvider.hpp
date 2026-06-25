@@ -29,7 +29,7 @@ public:
 
 	GstElement* RequestQueue();
 
-	void _StartPipelinePlaying()const;
+	void StartPipelinePlaying() const;
 
 	/*
 		Frame processing delegate

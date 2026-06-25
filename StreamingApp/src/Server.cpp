@@ -71,6 +71,11 @@ void Server::CreateMediaPipeline()
 	{
 		std::cout << "[" << __FUNCTION__ << "] Failed to create a " << boost::typeindex::type_id<FramePostProcessingHandler>().pretty_name() << " frame post processor" << std::endl;
 	}
+
+	if (WebcamProvider)
+	{
+		WebcamProvider->StartPipelinePlaying();
+	}
 }
 
 void Server::_StartMainLoop()
@@ -193,8 +198,11 @@ void Server::_HandleWebsocketSession(tcp::socket InSocket)
 
 		std::cout << "WebSocket connection accepted" << std::endl;
 
-		WebrtcMediaPipeline->OnIceCandidateDelegate.BindDelegate(this, &Server::_SendIceCandidateMessage);
-		WebrtcMediaPipeline->OnWriteMessageInBuffer.BindDelegate(this, &Server::_OnWriteMessageInBuffer);
+		if (WebrtcMediaPipeline)
+		{
+			WebrtcMediaPipeline->OnIceCandidateDelegate.BindDelegate(this, &Server::_SendIceCandidateMessage);
+			WebrtcMediaPipeline->OnWriteMessageInBuffer.BindDelegate(this, &Server::_OnWriteMessageInBuffer);
+		}
 
 		while (true)
 		{
@@ -203,7 +211,10 @@ void Server::_HandleWebsocketSession(tcp::socket InSocket)
 
 			std::string Text = beast::buffers_to_string(Buffer.data());
 			
-			WebrtcMediaPipeline->ProccessTextBuffer(Text);
+			if (WebrtcMediaPipeline)
+			{
+				WebrtcMediaPipeline->ProccessTextBuffer(Text);
+			}
 
 			boost::json::value JsonValue = boost::json::parse(Text);
 			boost::json::object JsonObject = JsonValue.as_object();

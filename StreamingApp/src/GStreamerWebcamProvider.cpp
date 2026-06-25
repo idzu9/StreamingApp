@@ -44,7 +44,10 @@ void GStreamerWebcamProvider::CreatePipeline()
 	_ConnectElemetsPads();
 	_SetupSignals();
 
-	_StartPipelinePlaying();
+	/*
+		Set pipeline to ready state and do not play until webcam footage recievers are not initialized
+	*/
+	gst_element_set_state(Pipeline, GST_STATE_READY);
 }
 
 void GStreamerWebcamProvider::_CreatePipelineElements()
@@ -203,7 +206,7 @@ GstFlowReturn GStreamerWebcamProvider::_OnCameraFrameRecieved(GstElement* Sink, 
 	return GST_FLOW_OK;
 }
 
-void GStreamerWebcamProvider::_StartPipelinePlaying() const
+void GStreamerWebcamProvider::StartPipelinePlaying() const
 {
 	GstStateChangeReturn StateReturn = gst_element_set_state(Pipeline, GST_STATE_PLAYING);
 	if (StateReturn == GST_STATE_CHANGE_FAILURE)

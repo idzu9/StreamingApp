@@ -2,7 +2,7 @@
 #include <boost/type_index.hpp>
 #include <iostream>
 
-const std::string PostProcessingFaceDetectionLayer::FaceCascadePath = "../../../../StreamingApp/resources/face_detection_yunet_2023mar.onnx";
+const std::string PostProcessingFaceDetectionLayer::FaceCascadePath = "../../../../StreamingApp/resources/models/face_detection_yunet_2023mar.onnx";
 
 PostProcessingFaceDetectionLayer::PostProcessingFaceDetectionLayer()
 {

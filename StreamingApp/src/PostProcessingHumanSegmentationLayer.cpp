@@ -2,7 +2,7 @@
 #include <boost/type_index.hpp>
 #include <iostream>
 
-const std::string PostProcessingHumanSegmentationLayer::HumanSegmentationModelPath = "../../../../StreamingApp/resources/human_segmentation_pphumanseg_2023mar.onnx";
+const std::string PostProcessingHumanSegmentationLayer::HumanSegmentationModelPath = "../../../../StreamingApp/resources/models/human_segmentation_pphumanseg_2023mar.onnx";
 const std::string PostProcessingHumanSegmentationLayer::BackgroundPath = "../../../../StreamingApp/resources/backgrounds/background.png";
 
 PostProcessingHumanSegmentationLayer::PostProcessingHumanSegmentationLayer()
